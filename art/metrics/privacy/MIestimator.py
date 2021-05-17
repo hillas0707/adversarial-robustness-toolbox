@@ -1,0 +1,307 @@
+# import numpy as np
+# import scipy
+# import math
+
+# from art.utils import check_and_transform_label_format, is_probability
+
+# x= np.ndarray.fromfile("/home/hilla/Hilla/tehnion/IBM project/dataset statlog/german.data-numeric", sep=" ")
+# print(x)
+# print(x.size)
+# def MI(x: np.ndarray,
+#      y: np.ndarray) -> int:
+
+
+# def entropy(x: np.ndarray)->int:
+
+
+# Python 2.7
+# Written by Shuyang Gao (BiLL), email: gaos@usc.edu
+
+
+from scipy import stats
+import numpy as np
+import scipy.spatial as ss
+from scipy.special import digamma, gamma
+import numpy.random as nr
+import random
+# import matplotlib.pyplot as plt
+import re
+from scipy.stats.stats import pearsonr
+import numpy.linalg as la
+from numpy.linalg import eig, inv, norm, det
+from scipy import stats
+from math import log, pi, hypot, fabs, sqrt
+from sklearn import neighbors
+
+
+class MI:
+
+    @staticmethod
+    def zip2(*args):
+        # zip2(x,y) takes the lists of vectors and makes it a list of vectors in a joint space
+        # E.g. zip2([[1],[2],[3]],[[4],[5],[6]]) = [[1,4],[2,5],[3,6]]
+        return [sum(sublist, []) for sublist in zip(*args)]
+
+    @staticmethod ## WE CHANGED ORIGINAL FUNCTION!!! NOW P IS A PARAMETER
+    def avgdigamma(points, dvec, p=float('inf')):  ## calculates the avg over N, in a specific dimension i (1 <= i <= d)! see formula 15
+        # This part finds number of neighbors in some radius in the marginal space
+        # returns expectation value of <psi(nx)>
+        N = len(points)
+        tree = ss.cKDTree(points)
+        avg = 0.
+        for i in range(N):
+            dist = dvec[i]
+            # subtlety, we don't include the boundary point,
+            # but we are implicitly adding 1 to kraskov def bc center point is included
+            num_points = len(tree.query_ball_point(points[i], dist - 1e-15, p=p))
+            avg += digamma(num_points) / N
+        return avg
+
+    @staticmethod
+    def __joint_space_dist(z1, z2, **kwargs):
+        ''' This is a custom distance function between samples in the joint space. ||z1-z2|| =  max{||x1-x2||, ||y1-y2||}
+            Metric for x - p minkowski distance. Metric for y- chebyshev distance (induces by inf norm), we are assuming for now that y is one dimensional, i.e. y in R.
+        '''
+        p = kwargs["metric_params"]["p"]
+        x1 = z1[:-1]
+        x2 = z2[:-1]
+        x_dist = ss.distance.minkowski(x1, x2, p=p)
+        y1 = z1[-1]
+        y2 = z2[-1]
+        return max(x_dist, fabs(y1 - y2))
+
+    @staticmethod
+    def mi_Kraskov_HnM(X, Y, k=5, p_x=float('inf'), p_y=float('inf'), base=np.exp(1), intens=1e-10):
+        ''' X is Nxd matrix, e.g. X = [[1.0,3.0,3.0],[0.1,1.2,5.4]] if X has 3 attributes and we have two samples
+            Y is Nx1 matrix, e.g. Y = [[1.0],[0.0]] if we have two samples. number of samples in X and Y must match
+            p indicates which p-norm to use on X. float, 1<=p<=inf
+        '''
+
+        assert k <= len(Y) - 1, "Set k smaller than num. samples - 1"
+        assert len(X) == len(Y), "Number of samples in X and Y must match"
+        assert isinstance(p_x, float), "p_x must be float"
+        assert p_x >= 1, "p must be larger or equal to 1"
+        assert isinstance(p_y, float), "p_x must be float"
+        assert p_y >= 1, "p must be larger or equal to 1"
+
+        X = np.array(X)
+        Y = np.array(Y, ndmin=2)  ## making sure Y is a column vector
+        N = X.shape[0]
+        # adding small noise to X and Y, e.g., x<-X+noise, y<-Y_noise
+        # QUESTION???? should we add the same noise to each row in X? we think YES
+        for i in range(N):
+            X[i] += (intens * nr.rand(1)[0])
+            Y[i] += (intens * nr.rand(1)[0])
+
+        points = np.concatenate((X, Y),
+                                axis=1)  ## Marginal space Z=(X,Y). ||z-z'|| = max {||x-x'||, ||y-y'||}. x is d dimensional and y is 1 dimensional. Using max norm in R^d and in R is equivalent to max norm in R^(d+1). NEED TO MAKE SURE THAT DATA IS NORMALIZED???
+        if p_x == float('inf'):
+            tree = ss.cKDTree(points)       ## in the case where we use inf norm we prefer not to use our custom distance function, since it is more efficient to use a default metric in cKDtree
+        else:
+            joint_space_metric = neighbors.DistanceMetric.get_metric('pyfunc', func=MI.__joint_space_dist, metric_params={"p": p_x})
+            tree_for_custum_metric = neighbors.BallTree(points, metric=joint_space_metric)
+        d_vec = np.zeros((2, N)) - 1
+        ''' Denote the j'th sample in the marginal space Z=(X,Y) by (x_j, y_j).
+            Denote the k-th nearest neighbors IN THE MARGINAL SPACE to the j'th sample by (x'_1,y'_1),(x'_2,y'_2),...,(x'_k,y'_k).
+            Eventually, after next loop, d_vec[0][j] will be max{||x_j - x'_i|| : 1<=i<=k} , d_vec[1][j] will be max{||y_j - y'_i|| : 1<=i<=k}
+            Meaning- d_vec[i][j] is exactly epsilon_j,k{x_i}, (half of) the length of the hyper rectangle in the i'th dimension (i=1,2)   (see section 2.3 KSG Estimator in https://arxiv.org/pdf/1411.2003.pdf)    
+        '''
+        sample = -1
+        for point in points:
+            sample += 1
+            if p_x == float('inf'):
+                distances, indices = tree.query(point, k + 1, p=float('inf'))
+            else:
+                distances, indices = tree_for_custum_metric.query([point], k+1)
+                distances = distances[0] ## just for fixing the shape... see sklearn.neighbors.BallTree documantation for query return value if not clear
+                indices = indices[0]
+            for i in indices:
+                neighbor = points[i]
+                if d_vec[0][sample] < np.max(np.fabs(points[sample][:-1] - neighbor[:-1])):
+                    d_vec[0][sample] = np.max(np.fabs(points[sample][:-1] - neighbor[:-1]))
+                if d_vec[1][sample] < np.fabs(points[sample][-1] - neighbor[-1]):
+                    d_vec[1][sample] = np.fabs(points[sample][-1] - neighbor[-1])
+
+        avg_digamma = MI.avgdigamma(X, d_vec[0], p_x) + MI.avgdigamma(Y, d_vec[1], p_y)
+        return digamma(N) + digamma(k) - 1 / k - avg_digamma
+
+    @staticmethod
+    def mi_Kraskov(X, k=5, base=np.exp(1), intens=1e-10):
+        '''The mutual information estimator by Kraskov et al.
+           ith row of X represents ith dimension of the data, e.g. X = [[1.0,3.0,3.0],[0.1,1.2,5.4]], if X has two dimensions and we have three samples
+
+        '''
+        # adding small noise to X, e.g., x<-X+noise
+        x = []
+        for i in range(len(X)):
+            tem = []
+            for j in range(len(X[i])):
+                tem.append([X[i][j] + intens * nr.rand(1)[0]])
+            x.append(tem)
+
+        points = []
+        for j in range(len(x[0])):
+            tem = []
+            for i in range(len(x)):
+                tem.append(x[i][j][0])
+            points.append(tem)
+        tree = ss.cKDTree(points)
+
+        dvec = []
+        for i in range(len(x)):
+            dvec.append([])
+        for point in points:
+            # Find k-nearest neighbors in joint space, p=inf means max norm
+            knn = tree.query(point, k + 1, p=float('inf'))
+            points_knn = []
+            for i in range(len(x)):
+                dvec[i].append(float('-inf'))
+                points_knn.append([])
+            for j in range(k + 1):
+                for i in range(len(x)):
+                    points_knn[i].append(points[knn[1][j]][i])
+
+            # Find distances to k-nearest neighbors in each marginal space
+            for i in range(k + 1):
+                for j in range(len(x)):
+                    if dvec[j][-1] < fabs(points_knn[j][i] - points_knn[j][0]):
+                        dvec[j][-1] = fabs(points_knn[j][i] - points_knn[j][0])
+
+        ret = 0.
+        for i in range(len(x)):
+            ret -= MI.avgdigamma(x[i], dvec[i])
+        ret += digamma(k) - (float(len(x)) - 1.) / float(k) + (float(len(x)) - 1.) * digamma(len(x[0]))
+        return ret
+
+    @staticmethod
+    def mi_LNC(X, k=5, base=np.exp(1), alpha=0.25, intens=1e-10):
+        '''The mutual information estimator by PCA-based local non-uniform correction(LNC)
+           ith row of X represents ith dimension of the data, e.g. X = [[1.0,3.0,3.0],[0.1,1.2,5.4]], if X has two dimensions and we have three samples
+           alpha is a threshold parameter related to k and d(dimensionality), please refer to our paper for details about this parameter
+        '''
+        # N is the number of samples
+        N = len(X[0])
+
+        # First Step: calculate the mutual information using the Kraskov mutual information estimator
+        # adding small noise to X, e.g., x<-X+noise
+        x = []
+        for i in range(len(X)):  ## len(x) = d
+            tem = []
+            for j in range(len(X[i])):  ## len(x[i]) = N
+                tem.append([X[i][j] + intens * nr.rand(1)[0]])
+            x.append(tem)
+
+        points = []  ## after next loop points is X transpose (rows are points, each entry is an attribute- makes more sense)
+        for j in range(len(x[0])):
+            tem = []
+            for i in range(len(x)):
+                tem.append(x[i][j][0])
+            points.append(tem)
+        tree = ss.cKDTree(points)
+        dvec = []
+        for i in range(len(x)):
+            dvec.append([])
+        for point in points:
+            # Find k-nearest neighbors in joint space, p=inf means max norm
+            knn = tree.query(point, k + 1, p=float('inf'))
+            points_knn = []
+            for i in range(len(x)):
+                dvec[i].append(float('-inf'))
+                points_knn.append([])
+            for j in range(k + 1):
+                for i in range(len(x)):
+                    points_knn[i].append(points[knn[1][j]][i])
+
+            # Find distances to k-nearest neighbors in each marginal space
+            for i in range(k + 1):
+                for j in range(len(x)):
+                    if dvec[j][-1] < fabs(points_knn[j][i] - points_knn[j][0]):
+                        dvec[j][-1] = fabs(points_knn[j][i] - points_knn[j][
+                            0])  ### d_vec dim is dXN dvec[i][j] is the distance of the kth neighbor of sample j w.r.t to ith dim. AKA n_{x_j}(i) in formula 15
+
+        ret = 0.
+        for i in range(len(x)):  ## len(x) = d
+            ret -= MI.avgdigamma(x[i], dvec[i])  ## calculating diggama for each dimension
+        ret += digamma(k) - (float(len(x)) - 1.) / float(k) + (float(len(x)) - 1.) * digamma(len(x[0]))  ## formula 15
+
+        # Second Step: Add the correction term (Local Non-Uniform Correction)
+        e = 0.
+        tot = -1
+        for point in points:
+            tot += 1
+            # Find k-nearest neighbors in joint space, p=inf means max norm
+            knn = tree.query(point, k + 1, p=float('inf'))
+            knn_points = []
+            for i in range(k + 1):
+                tem = []
+                for j in range(len(point)):
+                    tem.append(points[knn[1][i]][j])
+                knn_points.append(tem)
+
+            # Substract mean	of k-nearest neighbor points
+            for i in range(len(point)):
+                avg = knn_points[0][i]
+                for j in range(k + 1):
+                    knn_points[j][i] -= avg
+
+            # Calculate covariance matrix of k-nearest neighbor points, obtain eigen vectors
+            covr = []
+            for i in range(len(point)):
+                tem = 0
+                covr.append([])
+                for j in range(len(point)):
+                    covr[i].append(0)
+            for i in range(len(point)):
+                for j in range(len(point)):
+                    avg = 0.
+                    for ii in range(1, k + 1):
+                        avg += knn_points[ii][i] * knn_points[ii][j] / float(
+                            k)  ## multiplying (K^T)(K) where K dim is kXd
+                    covr[i][j] = avg
+            w, v = la.eig(covr)
+
+            # Calculate PCA-bounding box using eigen vectors
+            V_rect = 0
+            cur = []
+            for i in range(len(point)):
+                maxV = 0.
+                for j in range(0, k + 1):
+                    tem = 0.
+                    for jj in range(len(point)):
+                        tem += v[jj, i] * knn_points[j][
+                            jj]  ## projecting each neighbor of point to the direction of each eigen vector, and taking the distance of the further one (for a specific entry- 1 to d)
+                    if fabs(tem) > maxV:
+                        maxV = fabs(tem)
+                cur.append(maxV)
+                V_rect = V_rect + log(cur[
+                                          i])  ## calculatin log(volume of rotated bounding box)  [V_rec is already the log of the vilume!]
+
+            # Calculate the volume of original box
+            log_knn_dist = 0.
+            for i in range(len(dvec)):
+                log_knn_dist += log(dvec[i][tot])
+
+            # Perform local non-uniformity checking
+            if V_rect >= log_knn_dist + log(alpha):
+                V_rect = log_knn_dist
+
+            # Update correction term
+            if (log_knn_dist - V_rect) > 0:
+                e += (log_knn_dist - V_rect) / N
+
+        return (ret + e) / log(base)  ## formula 17
+
+    @staticmethod
+    def entropy(x, k=3, base=np.exp(1), intens=1e-10):
+        """ The classic K-L k-nearest neighbor continuous entropy estimator
+            x should be a list of vectors, e.g. x = [[1.3],[3.7],[5.1],[2.4]]
+            if x is a one-dimensional scalar and we have four samples
+        """
+        assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+        d = len(x[0])
+        N = len(x)
+        x = [list(p + intens * nr.rand(len(x[0]))) for p in x]
+        tree = ss.cKDTree(x)
+        nn = [tree.query(point, k + 1, p=float('inf'))[0][k] for point in x]  ## in the ith entry 0.5epsilon_i,k
+        const = digamma(N) - digamma(k) + d * log(2)  ## last term is to correct 0.5epsilon to epsilon
+        return (const + d * np.mean(list(map(log, nn)))) / log(base)  ## formula 14
