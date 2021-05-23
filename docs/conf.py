@@ -139,7 +139,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'adversarial-robustness-toolbox.tex', 'adversarial-robustness-toolbox Documentation',
+    (master_doc, 'adversarial_robustness_toolbox.tex', 'adversarial_robustness_toolbox Documentation',
      'Maria-Irina Nicolae', 'manual'),
 ]
 
@@ -149,7 +149,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'adversarial-robustness-toolbox', 'adversarial-robustness-toolbox Documentation',
+    (master_doc, 'adversarial_robustness_toolbox', 'adversarial_robustness_toolbox Documentation',
      [author], 1)
 ]
 
@@ -160,8 +160,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'adversarial-robustness-toolbox', 'adversarial-robustness-toolbox Documentation',
-     author, 'adversarial-robustness-toolbox', 'One line description of project.',
+    (master_doc, 'adversarial_robustness_toolbox', 'adversarial_robustness_toolbox Documentation',
+     author, 'adversarial_robustness_toolbox', 'One line description of project.',
      'Miscellaneous'),
 ]
 

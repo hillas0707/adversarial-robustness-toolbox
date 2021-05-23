@@ -53,7 +53,7 @@ def get_version(rel_path):
 
 
 setup(
-    name="adversarial-robustness-toolbox",
+    name="adversarial_robustness_toolbox",
     version=get_version("art/__init__.py"),
     description="Toolbox for adversarial machine learning.",
     long_description=long_description,

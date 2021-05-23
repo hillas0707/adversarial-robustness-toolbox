@@ -16,7 +16,7 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 """
-Module providing convenience functions.
+Module providing convenience functionss.
 """
 # pylint: disable=C0302
 from __future__ import absolute_import, division, print_function, unicode_literals

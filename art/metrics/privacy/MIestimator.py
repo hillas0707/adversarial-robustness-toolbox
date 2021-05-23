@@ -42,8 +42,9 @@ class MI:
         # E.g. zip2([[1],[2],[3]],[[4],[5],[6]]) = [[1,4],[2,5],[3,6]]
         return [sum(sublist, []) for sublist in zip(*args)]
 
-    @staticmethod ## WE CHANGED ORIGINAL FUNCTION!!! NOW P IS A PARAMETER
-    def avgdigamma(points, dvec, p=float('inf')):  ## calculates the avg over N, in a specific dimension i (1 <= i <= d)! see formula 15
+    @staticmethod  ## WE CHANGED ORIGINAL FUNCTION!!! NOW P IS A PARAMETER
+    def avgdigamma(points, dvec, p=float(
+        'inf')):  ## calculates the avg over N, in a specific dimension i (1 <= i <= d)! see formula 15
         # This part finds number of neighbors in some radius in the marginal space
         # returns expectation value of <psi(nx)>
         N = len(points)
@@ -96,9 +97,11 @@ class MI:
         points = np.concatenate((X, Y),
                                 axis=1)  ## Marginal space Z=(X,Y). ||z-z'|| = max {||x-x'||, ||y-y'||}. x is d dimensional and y is 1 dimensional. Using max norm in R^d and in R is equivalent to max norm in R^(d+1). NEED TO MAKE SURE THAT DATA IS NORMALIZED???
         if p_x == float('inf'):
-            tree = ss.cKDTree(points)       ## in the case where we use inf norm we prefer not to use our custom distance function, since it is more efficient to use a default metric in cKDtree
+            tree = ss.cKDTree(
+                points)  ## in the case where we use inf norm we prefer not to use our custom distance function, since it is more efficient to use a default metric in cKDtree
         else:
-            joint_space_metric = neighbors.DistanceMetric.get_metric('pyfunc', func=MI.__joint_space_dist, metric_params={"p": p_x})
+            joint_space_metric = neighbors.DistanceMetric.get_metric('pyfunc', func=MI.__joint_space_dist,
+                                                                     metric_params={"p": p_x})
             tree_for_custum_metric = neighbors.BallTree(points, metric=joint_space_metric)
         d_vec = np.zeros((2, N)) - 1
         ''' Denote the j'th sample in the marginal space Z=(X,Y) by (x_j, y_j).
@@ -112,8 +115,9 @@ class MI:
             if p_x == float('inf'):
                 distances, indices = tree.query(point, k + 1, p=float('inf'))
             else:
-                distances, indices = tree_for_custum_metric.query([point], k+1)
-                distances = distances[0] ## just for fixing the shape... see sklearn.neighbors.BallTree documantation for query return value if not clear
+                distances, indices = tree_for_custum_metric.query([point], k + 1)
+                distances = distances[
+                    0]  ## just for fixing the shape... see sklearn.neighbors.BallTree documantation for query return value if not clear
                 indices = indices[0]
             for i in indices:
                 neighbor = points[i]
@@ -292,7 +296,8 @@ class MI:
         return (ret + e) / log(base)  ## formula 17
 
     @staticmethod
-    def entropy(x, k=3, base=np.exp(1), intens=1e-10):
+    def entropy(x, p=float('inf'), k=3, base=np.exp(1), intens=1e-10):          ## WE CHANGED p TO BE A PARAMETER!
+
         """ The classic K-L k-nearest neighbor continuous entropy estimator
             x should be a list of vectors, e.g. x = [[1.3],[3.7],[5.1],[2.4]]
             if x is a one-dimensional scalar and we have four samples
@@ -302,6 +307,6 @@ class MI:
         N = len(x)
         x = [list(p + intens * nr.rand(len(x[0]))) for p in x]
         tree = ss.cKDTree(x)
-        nn = [tree.query(point, k + 1, p=float('inf'))[0][k] for point in x]  ## in the ith entry 0.5epsilon_i,k
+        nn = [tree.query(point, k + 1, p=p)[0][k] for point in x]  ## in the ith entry 0.5epsilon_i,k
         const = digamma(N) - digamma(k) + d * log(2)  ## last term is to correct 0.5epsilon to epsilon
         return (const + d * np.mean(list(map(log, nn)))) / log(base)  ## formula 14
