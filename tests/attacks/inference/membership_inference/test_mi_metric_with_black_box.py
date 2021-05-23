@@ -71,7 +71,7 @@ def plot_mi_as_func_of_of_k(x_train, x_test, K, P, model_name, data_set_name):
 # calculating the probability of making at least alpha prediction mistakes given the (empirical) probability of making one mistake (assuming independence- binomial dist.)
 def calc_prob_of_alpha_mistakes(mistake_prob, alpha, size_of_data_set):
     return sum(
-        [(mistake_prob ** i) * ((1 - mistake_prob) ** (size_of_data_set - i)) for i in
+        [comb(size_of_data_set, i) * (mistake_prob ** i) * ((1 - mistake_prob) ** (size_of_data_set - i)) for i in
          range(alpha, size_of_data_set + 1)])
 
 
