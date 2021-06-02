@@ -63,19 +63,27 @@ class MI:
         ''' This is a custom distance function between samples in the joint space. ||z1-z2|| =  max{||x1-x2||, ||y1-y2||}
             Metric for x - p minkowski distance. Metric for y- chebyshev distance (induces by inf norm), we are assuming for now that y is one dimensional, i.e. y in R.
         '''
-        p = kwargs["metric_params"]["p"]
+        p_x = kwargs["metric_params"]["p_x"]
+        p_y = kwargs["metric_params"]["p_y"]
         x1 = z1[:-1]
         x2 = z2[:-1]
-        x_dist = ss.distance.minkowski(x1, x2, p=p)
+        if p_x != float('inf'):
+            x_dist = ss.distance.minkowski(x1, x2, p=p_x)
+        else:
+            x_dist = ss.distance.chebyshev(x1, x2)
         y1 = z1[-1]
         y2 = z2[-1]
-        return max(x_dist, fabs(y1 - y2))
+        if p_y != float('inf'):
+            y_dist = ss.distance.minkowski(y1, y2, p=p_y)
+        else:
+            y_dist = ss.distance.chebyshev(y1, y2)
+        return max(x_dist, y_dist)
 
     @staticmethod
     def mi_Kraskov_HnM(X, Y, k=5, p_x=float('inf'), p_y=float('inf'), base=np.exp(1), intens=1e-10):
         ''' X is Nxd matrix, e.g. X = [[1.0,3.0,3.0],[0.1,1.2,5.4]] if X has 3 attributes and we have two samples
-            Y is Nx1 matrix, e.g. Y = [[1.0],[0.0]] if we have two samples. number of samples in X and Y must match
-            p indicates which p-norm to use on X. float, 1<=p<=inf
+            Y is Nxa matrix, e.g. Y = [[1.0],[0.0]] if we have 1 attribute two samples. number of samples in X and Y must match
+            p_x\y indicates which p-norm to use on X\Y. float, 1<=p<=inf
         '''
 
         assert k <= len(Y) - 1, "Set k smaller than num. samples - 1"
@@ -96,13 +104,12 @@ class MI:
 
         points = np.concatenate((X, Y),
                                 axis=1)  ## Marginal space Z=(X,Y). ||z-z'|| = max {||x-x'||, ||y-y'||}. x is d dimensional and y is 1 dimensional. Using max norm in R^d and in R is equivalent to max norm in R^(d+1). NEED TO MAKE SURE THAT DATA IS NORMALIZED???
-        if p_x == float('inf'):
-            tree = ss.cKDTree(
-                points)  ## in the case where we use inf norm we prefer not to use our custom distance function, since it is more efficient to use a default metric in cKDtree
+        if p_x == float('inf') and p_y == float('inf'):
+            joint_space_metric = neighbors.DistanceMetric.get_metric('chebyshev')
         else:
             joint_space_metric = neighbors.DistanceMetric.get_metric('pyfunc', func=MI.__joint_space_dist,
-                                                                     metric_params={"p": p_x})
-            tree_for_custum_metric = neighbors.BallTree(points, metric=joint_space_metric)
+                                                                     metric_params={"p_x": p_x, "p_y": p_y})
+        tree = neighbors.BallTree(points, metric=joint_space_metric)
         d_vec = np.zeros((2, N)) - 1
         ''' Denote the j'th sample in the marginal space Z=(X,Y) by (x_j, y_j).
             Denote the k-th nearest neighbors IN THE MARGINAL SPACE to the j'th sample by (x'_1,y'_1),(x'_2,y'_2),...,(x'_k,y'_k).
@@ -112,19 +119,16 @@ class MI:
         sample = -1
         for point in points:
             sample += 1
-            if p_x == float('inf'):
-                distances, indices = tree.query(point, k + 1, p=float('inf'))
-            else:
-                distances, indices = tree_for_custum_metric.query([point], k + 1)
-                distances = distances[
-                    0]  ## just for fixing the shape... see sklearn.neighbors.BallTree documantation for query return value if not clear
-                indices = indices[0]
+            distances, indices = tree.query([point], k + 1)
+            distances = distances[
+                0]  ## just for fixing the shape... see sklearn.neighbors.BallTree documantation for query return value if not clear
+            indices = indices[0]
             for i in indices:
                 neighbor = points[i]
-                if d_vec[0][sample] < np.max(np.fabs(points[sample][:-1] - neighbor[:-1])):
-                    d_vec[0][sample] = np.max(np.fabs(points[sample][:-1] - neighbor[:-1]))
-                if d_vec[1][sample] < np.fabs(points[sample][-1] - neighbor[-1]):
-                    d_vec[1][sample] = np.fabs(points[sample][-1] - neighbor[-1])
+                if d_vec[0][sample] < np.max(np.fabs(points[sample][:-Y.shape[1]] - neighbor[:-Y.shape[1]])):
+                    d_vec[0][sample] = np.max(np.fabs(points[sample][:-Y.shape[1]] - neighbor[:-Y.shape[1]]))
+                if d_vec[1][sample] < np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:])):
+                    d_vec[1][sample] = np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:]))
 
         avg_digamma = MI.avgdigamma(X, d_vec[0], p_x) + MI.avgdigamma(Y, d_vec[1], p_y)
         return digamma(N) + digamma(k) - 1 / k - avg_digamma
@@ -296,7 +300,7 @@ class MI:
         return (ret + e) / log(base)  ## formula 17
 
     @staticmethod
-    def entropy(x, p=float('inf'), k=3, base=np.exp(1), intens=1e-10):          ## WE CHANGED p TO BE A PARAMETER!
+    def entropy_old(x, p=float('inf'), k=3, base=np.exp(1), intens=1e-10):  ## WE CHANGED p TO BE A PARAMETER!
 
         """ The classic K-L k-nearest neighbor continuous entropy estimator
             x should be a list of vectors, e.g. x = [[1.3],[3.7],[5.1],[2.4]]
@@ -310,3 +314,122 @@ class MI:
         nn = [tree.query(point, k + 1, p=p)[0][k] for point in x]  ## in the ith entry 0.5epsilon_i,k
         const = digamma(N) - digamma(k) + d * log(2)  ## last term is to correct 0.5epsilon to epsilon
         return (const + d * np.mean(list(map(log, nn)))) / log(base)  ## formula 14
+
+    @staticmethod
+    def entropy(x, p=float('inf'), k=3, base=np.exp(1), intens=1e-10):  ## WE CHANGED p TO BE A PARAMETER!
+
+        """ The classic K-L k-nearest neighbor continuous entropy estimator
+            x should be a list of vectors, e.g. x = [[1.3],[3.7],[5.1],[2.4]]
+            if x is a one-dimensional scalar and we have four samples
+        """
+        assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+        d = len(x[0])
+        N = len(x)
+        x = [list(a + intens * nr.rand(len(x[0]))) for a in x]
+        if p != float('inf'):
+            metric = neighbors.DistanceMetric.get_metric('minkowski', p=p)
+        else:
+            metric = neighbors.DistanceMetric.get_metric('chebyshev')
+        tree = neighbors.BallTree(x, metric=metric)
+        nn = [tree.query([point], k + 1)[0][0][k] for point in x]  ## in the ith entry 0.5epsilon_i,k
+        const = digamma(N) - digamma(k) + d * log(2)  ## last term is to correct 0.5epsilon to epsilonxc
+        return (const + d * np.mean(list(map(log, nn)))) / log(base)  ## formula 14
+
+    @staticmethod
+    def entropy_with_correction(x, p=float('inf'), k=3, base=np.exp(1),
+                                intens=1e-10):  ## WE CHANGED p TO BE A PARAMETER!
+
+        """ The classic K-L k-nearest neighbor continuous entropy estimator
+            x should be a list of vectors, e.g. x = [[1.3],[3.7],[5.1],[2.4]]
+            if x is a one-dimensional scalar and we have four samples
+        """
+        assert k <= len(x) - 1, "Set k smaller than num. samples - 1"
+        d = len(x[0])
+        N = len(x)
+        x = [list(p + intens * nr.rand(len(x[0]))) for p in x]
+        if p != float('inf'):
+            metric = neighbors.DistanceMetric.get_metric('minkowski', p=p)
+        else:
+            metric = neighbors.DistanceMetric.get_metric('chebyshev')
+        tree = neighbors.BallTree(x, metric=metric)
+        nn = [tree.query([point], k + 1)[0][0][k] for point in x]  ## in the ith entry 0.5epsilon_i,k
+        const = digamma(N) - digamma(k) + d * log(2)  ## last term is to correct 0.5epsilon to epsilonxc
+        if p != float('inf'):
+            const += log((gamma(1 + 1 / p)) / gamma(1 + d / p))           ## adding log c_d as in Kraskuv eq. 20 (c_d = {volume of d dim. unit ball in p norm} / 2^d)
+        return (const + d * np.mean(list(map(log, nn)))) / log(base)  ## formula 14
+
+
+'''
+N = 5000  # total number of samples
+
+# 2D Linear
+noise = 1e-7
+x = []
+for i in range(N):
+    x.append(nr.rand(1)[0])
+y = []
+y_for_ent = []
+for i in range(N):
+    y.append(x[i] + nr.rand(1)[0] * noise)
+    y_for_ent.append([y[-1]])
+
+usedN = 500  # number of samples used for calculation
+print('Testing 2D linear relationship Y=X+Uniform_Noise')
+print('noise level=' + str(noise) + ", Nsamples = " + str(usedN))
+print('True MI(x:y)', MI.entropy(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('True MI(x:y) ballll', MI.entropy_ball(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('Kraskov MI(x:y)', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+Y = [[z] for z in y[:usedN]]
+X = [[z] for z in x[:usedN]]
+print('Kraskov hnmmmmm MI(x:y)', MI.mi_Kraskov_HnM(X, Y, k=1,p_x=2.0, base=np.exp(1), intens=0.0))
+print('LNC MI(x:y)', MI.mi_LNC([x[:usedN], y[:usedN]], k=5, base=np.exp(1), alpha=0.25, intens=0.0))
+print()
+
+# 2D Quadratic
+noise = 1e-7
+x = []
+for i in range(N):
+    x.append(nr.rand(1)[0])
+y = []
+y_for_ent = []
+for i in range(N):
+    y.append(x[i] * x[i] + nr.rand(1)[0] * noise)
+    y_for_ent.append([y[-1]])
+
+usedN = 1000  # number of samples used for calculation
+print('Testing 2D quadratic relationship Y=X^2+Uniform_Noise')
+print('noise level=' + str(noise) + ", Nsamples = " + str(usedN))
+print('True MI(x:y)', MI.entropy(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('True MI(x:y) ballll', MI.entropy_ball(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('Kraskov MI(x:y)', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+Y = [[z] for z in y[:usedN]]
+X = [[z] for z in x[:usedN]]
+print('Kraskov hnmmmm MI(x:y)', MI.mi_Kraskov_HnM(X, Y, k=1, base=np.exp(1), intens=0.0))
+print('LNC MI(x:y)', MI.mi_LNC([x[:usedN], y[:usedN]], k=5, base=np.exp(1), alpha=0.25, intens=0.0))
+print()
+
+print("blaaaaaaaaaaaaaaaaa")
+
+# 2D Quadratic
+noise = 1e-7
+x = []
+for i in range(N):
+    x.append(nr.rand(1)[0])
+y = []
+y_for_ent = []
+for i in range(N):
+    y.append(x[i] * x[i] + nr.rand(1)[0] * noise)
+    y_for_ent.append([y[-1]])
+
+usedN = 1000  # number of samples used for calculation
+print('Testing 2D quadratic relationship Y=X^2+Uniform_Noise')
+print('noise level=' + str(noise) + ", Nsamples = " + str(usedN))
+print('True MI(x:y)', MI.entropy(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('True MI(x:y) ballll', MI.entropy_ball(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('Kraskov MI(x:y)', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+Y = [[z,z,z] for z in y[:usedN]]
+X = [[z,z+1,z,z+3,z,z+2.3,z] for z in x[:usedN]]
+print('Kraskov hnmmmm MI(x:y)', MI.mi_Kraskov_HnM(X, Y, k=1, p_y=2.0,p_x=2.0,  base=np.exp(1), intens=0.0))
+print('LNC MI(x:y)', MI.mi_LNC([x[:usedN], y[:usedN]], k=5, base=np.exp(1), alpha=0.25, intens=0.0))
+print()
+'''

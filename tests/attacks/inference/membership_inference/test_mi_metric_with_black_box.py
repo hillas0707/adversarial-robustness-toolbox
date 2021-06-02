@@ -17,13 +17,19 @@ from math import comb, log
 ## p_aplpha >= lower bound. p_alpha is the probability of MIA model making more then alpha prediction errors
 def calc_LB_prob_MIA_errors(training_data_D, output_Y, size_of_data_set, Alphas, k, p):
     mi_D_Y = mi.mi_Kraskov_HnM(training_data_D, output_Y, k=k, p_x=p)
-    print(f'MI(D,Y)={mi_D_Y}, k={k}, p={p}')
-    entropy_D = mi.entropy(training_data_D, k=k, p=p)
-    p_alphas = []
+    Print(f'\t\tMI(D,Y)={mi_D_Y}, k={k}, p={p}')
+    entropy_D_orig = mi.entropy(training_data_D, k=k)
+    entropy_D_p = mi.entropy(training_data_D, k=k, p=p)
+    entropy_D_p_wc = mi.entropy_with_correction(training_data_D, k=k, p=p)
+    p_alphas_orig = []
+    p_alphas_p = []
+    p_alphas_p_wc = []
     for alpha in Alphas:
         const = log(sum([comb(size_of_data_set, i) for i in range(alpha + 1)]))
-        p_alphas.append((entropy_D - mi_D_Y - 1 - const) / (size_of_data_set - const))
-    return p_alphas
+        p_alphas_orig.append((entropy_D_orig - mi_D_Y - 1 - const) / (size_of_data_set - const))
+        p_alphas_p.append((entropy_D_p - mi_D_Y - 1 - const) / (size_of_data_set - const))
+        p_alphas_p_wc.append((entropy_D_p_wc - mi_D_Y - 1 - const) / (size_of_data_set - const))
+    return p_alphas_orig, p_alphas_p, p_alphas_p_wc
 
 
 '''
@@ -76,29 +82,30 @@ def calc_prob_of_alpha_mistakes(mistake_prob, alpha, size_of_data_set):
 
 
 # alpha is the number of mistakes that attack makes
-def plot_probabilities_as_func_of_alpha(LBs, p_alphas, Alphas, K, p, model_name, data_set_name):
+def plot_probabilities_as_func_of_alpha(LBs, p_alphas, Alphas, K, p, model_name, data_set_name, *args):
     plt.figure()
+    plt.rcParams["axes.titlesize"] = 6
     plt.plot(Alphas, p_alphas, label='empirical p_alpha')
     for i in range(len(K)):
         plt.plot(Alphas, LBs[i], label=f'LB with k={K[i]}')
     plt.title(
         f"probability of MIA attack making alpha prediction errors: empirical estimation vs. lower bound with mi - {model_name}, {data_set_name}, p_norm={p}")
     plt.xlabel("alpha (number of prediction errors of MIA attack)")
-    plt.ylabel("probability")
+    plt.ylabel(f'probability, {args[0]}')
     plt.legend()
-    plt.savefig(f'prob(alpha), p={p}, {model_name}, {data_set_name}.png')
+    plt.savefig(f'prob(alpha), p={p}, {model_name}, {data_set_name}, {args[0]}.png')
 
 
 def run_bb_attack(x_train, x_test, y_train, y_test, model):
     model.fit(x_train, y_train)
-    y_pred_train = model.predict_proba(x_train)[:, -1]
-    y_pred_test = model.predict_proba(x_test)[:, -1]
-    y_pred_train = np.array([y_pred_train]).T
-    y_pred_test = np.array([y_pred_test]).T
+    y_pred_train = model.predict_proba(x_train)
+    y_pred_test = model.predict_proba(x_test)
+    # y_pred_train = np.array([y_pred_train]).T
+    # y_pred_test = np.array([y_pred_test]).T
     accuracy_train = accuracy_score(y_train, model.predict(x_train))
     accuracy_test = accuracy_score(y_test, model.predict(x_test))
-    print("accuracy of model's predictions on train set: ", accuracy_train)
-    print("accuracy of model's predictions on test set: ", accuracy_test)
+    Print("\t\taccuracy of model's predictions on train set: ", accuracy_train)
+    Print("\t\taccuracy of model's predictions on test set: ", accuracy_test)
 
     ## Naming of vars explained:
     ## x/ y always indicates data and labels accordingly.
@@ -118,33 +125,33 @@ def run_bb_attack(x_train, x_test, y_train, y_test, model):
 
     x_attack_test = np.concatenate((x_train_attack_test, x_test_attack_test))
     y_attack_test = np.concatenate((y_train_attack_test, y_test_attack_test))
-    # print(x_attack_test.shape)
-    # print(y_attack_test.shape)
+    # Print(x_attack_test.shape)
+    # Print(y_attack_test.shape)
     assert x_attack_test.shape[0] == y_attack_test.shape[0]
     ones = np.ones(x_train_attack_test.shape[0])
     zeros = np.zeros(x_test_attack_test.shape[0])
     true_membership = np.concatenate((ones, zeros))
-    # print(true_membership.shape)
-    # print(y_attack_test.shape)
+    # Print(true_membership.shape)
+    # Print(y_attack_test.shape)
 
     inferred_membership = attack.infer(x_attack_test, y_attack_test)
-    # print(infered_membership.shape)
+    # Print(infered_membership.shape)
     TN, FP, FN, TP = confusion_matrix(true_membership, inferred_membership).ravel()
-    print("confusion mat of inference attack:")
-    print("TN ", TN)
-    print("FP ", FP)
-    print("FN ", FN)
-    print("TP ", TP)
+    Print("\t\tconfusion mat of inference attack:")
+    Print("\t\tTN ", TN)
+    Print("\t\tFP ", FP)
+    Print("\t\tFN ", FN)
+    Print("\t\tTP ", TP)
     attack_accuracy = (TP + TN) / (TN + FP + FN + TP)
     # attack_accuracy = accuracy_score(true_membership, inferred_membership)
     assert attack_accuracy == accuracy_score(true_membership, inferred_membership)
     mistake_prob = (FP + FN) / (TN + FP + FN + TP)
-    print("black box attack accuracy ", attack_accuracy)
+    Print("\t\tblack box attack accuracy ", attack_accuracy)
     return y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob
 
 
 def analyze_logistic_regression(x_train, x_test, y_train, y_test, data_set_name):
-    print(f'    ##running black box attack - Logistic Regression')
+    Print(f'\t##running black box attack - Logistic Regression')
     clf = LogisticRegression(random_state=42, max_iter=150)
     y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
                                                                                                             x_test,
@@ -156,7 +163,7 @@ def analyze_logistic_regression(x_train, x_test, y_train, y_test, data_set_name)
 
 
 def analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name):
-    print(f'    ##running black box attack - Decision Tree')
+    Print(f'\t##running black box attack - Decision Tree')
     clf = DecisionTreeClassifier(random_state=0)
     y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
                                                                                                             x_test,
@@ -168,7 +175,7 @@ def analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name):
 
 
 def analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_name):
-    print(f'    ##running black box attack - MLP')
+    Print(f'\t##running black box attack - MLP')
     clf = MLPClassifier(random_state=0)
     y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
                                                                                                             x_test,
@@ -180,7 +187,7 @@ def analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_nam
 
 
 def analyze_RandomForestClassifier(x_train, x_test, y_train, y_test, data_set_name):
-    print(f'    ##running black box attack - Random Forest')
+    Print(f'\t##running black box attack - Random Forest')
     clf = RandomForestClassifier(random_state=0)
     y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
                                                                                                             x_test,
@@ -201,19 +208,31 @@ def analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy
     Alphas = [*range(1, size_of_data_set + 1)]
     mi_train = []
     mi_test = []
-    LB = []
+    LB_orig = []
+    LB_p = []
+    LB_p_wc = []
     p_alphas = [calc_prob_of_alpha_mistakes(mistake_prob, alpha, size_of_data_set) for alpha in Alphas]
     for p in P:
         mi_train.append([])
         mi_test.append([])
-        LB.append([])
+        LB_orig.append([])
+        LB_p.append([])
+        LB_p_wc.append([])
         for k in K:
             mi_train[-1].append(mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p))
             mi_test[-1].append(mi.mi_Kraskov_HnM(x_test, y_pred_test, k=k, p_x=p))
-            LB[-1].append(calc_LB_prob_MIA_errors(x_train, y_pred_train, size_of_data_set, Alphas, k=k, p=p))
+            lb_orig, lb_p, lb_p_wc = calc_LB_prob_MIA_errors(x_train, y_pred_train, size_of_data_set, Alphas, k=k, p=p)
+            LB_orig[-1].append(lb_orig)
+            LB_p[-1].append(lb_p)
+            LB_p_wc[-1].append(lb_p_wc)
         # plot_mi(K, mi_train[-1], title='train', p=p)
         # plot_mi(K, mi_test[-1], title='test', p=p)
-        plot_probabilities_as_func_of_alpha(LB[-1], p_alphas, Alphas, K, p, model_name, data_set_name)
+        plot_probabilities_as_func_of_alpha(LB_orig[-1], p_alphas, Alphas, K, p, model_name, data_set_name,
+                                            "LB with orig entropy est.")
+        plot_probabilities_as_func_of_alpha(LB_p[-1], p_alphas, Alphas, K, p, model_name, data_set_name,
+                                            "LB with p-norm etropy est.")
+        plot_probabilities_as_func_of_alpha(LB_p_wc[-1], p_alphas, Alphas, K, p, model_name, data_set_name,
+                                            "LB with p-norm with correction entropy est.")
 
     plot_mi_as_func_of_of_k(mi_train, mi_test, K, P, model_name, data_set_name)
 
@@ -230,10 +249,10 @@ def analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy
 
 
 def analyze_all_models(x_train, x_test, y_train, y_test, data_set_name):
-    print("train data shape: ", x_train.shape)
-    print("test data shape: ", x_test.shape)
-    print("train labels shape: ", y_train.shape)
-    print("test labels shape: ", y_test.shape)
+    Print("\ttrain data shape: ", x_train.shape)
+    Print("\ttest data shape: ", x_test.shape)
+    Print("\ttrain labels shape: ", y_train.shape)
+    Print("\ttest labels shape: ", y_test.shape)
     analyze_logistic_regression(x_train, x_test, y_train, y_test, data_set_name)
     analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name)
     analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_name)
@@ -241,7 +260,7 @@ def analyze_all_models(x_train, x_test, y_train, y_test, data_set_name):
 
 
 def test_german_with_multiple_models():
-    print("testing with german data...")
+    Print("testing with german data...")
     german = np.loadtxt('german.data-numeric.csv', delimiter=',')
     german_normalized = preprocessing.MinMaxScaler().fit_transform(german)
     x = german_normalized[:, :-1]  # deleting labels from samples
@@ -251,7 +270,7 @@ def test_german_with_multiple_models():
 
 
 def test_landsat_with_multiple_models():
-    print("testing with landsat data...")
+    Print("testing with landsat data...")
     landsat_train = np.loadtxt('sat.trn', delimiter=',')
     landsat_test = np.loadtxt('sat.tst', delimiter=',')
     landsat_train_normalized = preprocessing.MinMaxScaler().fit_transform(landsat_train)
@@ -264,12 +283,22 @@ def test_landsat_with_multiple_models():
 
 
 def main():
+    Print("----- STARTING TESTS! ------")
     test_german_with_multiple_models()
     test_landsat_with_multiple_models()
+    Print("----- DONE :) -----")
+
+
+def Print(string, *args):
+    print(string, *args)
+    print(string, *args, file=output)
+    #output.flush()
 
 
 if __name__ == "__main__":
+    output = open("log.txt", "a", 1)
     main()
+    output.close()
 
 '''
 
@@ -302,10 +331,10 @@ x_test = x_test.T
 y_train = y_train.T
 y_test = y_test.T
 
-print("x train: ",x_train.shape)
-print("x test: ",x_test.shape)
-print("y train: ",y_train.shape)
-print("y test: ",y_test.shape)
+Print("x train: ",x_train.shape)
+Print("x test: ",x_test.shape)
+Print("y train: ",y_train.shape)
+Print("y test: ",y_test.shape)
 
 
 
@@ -362,7 +391,7 @@ def update(w, b, x_train, y_train, learning_rate,number_of_iterarion):
         if i % 10 == 0:
             cost_list2.append(cost)
             index.append(i)
-            print ("Cost after iteration %i: %f" %(i, cost))
+            Print ("Cost after iteration %i: %f" %(i, cost))
     # we update(learn) parameters weights and bias
     parameters = {"weight": w,"bias": b}
     #plt.plot(index,cost_list2)
@@ -401,8 +430,8 @@ def logistic_regression(x_train, y_train, x_test, y_test, learning_rate, num_ite
     y_prediction_train = predict(parameters["weight"], parameters["bias"], x_train)
 
     # Print train/test Errors
-    print("train accuracy: {} %".format(100 - np.mean(np.abs(y_prediction_train - y_train)) * 100))
-    print("test accuracy: {} %".format(100 - np.mean(np.abs(y_prediction_test - y_test)) * 100))
+    Print("train accuracy: {} %".format(100 - np.mean(np.abs(y_prediction_train - y_train)) * 100))
+    Print("test accuracy: {} %".format(100 - np.mean(np.abs(y_prediction_test - y_test)) * 100))
 
 
 logistic_regression(x_train, y_train, x_test, y_test, learning_rate=1, num_iterations=100)
@@ -412,8 +441,8 @@ logistic_regression(x_train, y_train, x_test, y_test, learning_rate=1, num_itera
 # sklearn
 from sklearn import linear_model
 logreg = linear_model.LogisticRegression(random_state = 42,max_iter= 150)
-print("test accuracy: {} ".format(logreg.fit(x_train.T, y_train.T).score(x_test.T, y_test.T)))
-print("train accuracy: {} ".format(logreg.fit(x_train.T, y_train.T).score(x_train.T, y_train.T)))
+Print("test accuracy: {} ".format(logreg.fit(x_train.T, y_train.T).score(x_test.T, y_test.T)))
+Print("train accuracy: {} ".format(logreg.fit(x_train.T, y_train.T).score(x_train.T, y_train.T)))
 
 
 
