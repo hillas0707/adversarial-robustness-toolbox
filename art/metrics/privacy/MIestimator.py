@@ -85,6 +85,14 @@ class MI:
         return max(x_dist, y_dist)
 
     @staticmethod
+    def __marginal_space_dist(q1, q2, p=float('inf')):
+        if p != float('inf'):
+            dist = ss.distance.minkowski(q1, q2, p=p)
+        else:
+            dist = ss.distance.chebyshev(q1, q2)
+        return dist
+
+    @staticmethod
     def mi_Kraskov_HnM(X, Y, k=5, p_x=float('inf'), p_y=float('inf'), base=np.exp(1), intens=1e-10):
         ''' X is Nxd matrix, e.g. X = [[1.0,3.0,3.0],[0.1,1.2,5.4]] if X has 3 attributes and we have two samples
             Y is Nxa matrix, e.g. Y = [[1.0],[0.0]] if we have 1 attribute two samples. number of samples in X and Y must match
@@ -119,22 +127,28 @@ class MI:
         ''' Denote the j'th sample in the marginal space Z=(X,Y) by (x_j, y_j).
             Denote the k-th nearest neighbors IN THE MARGINAL SPACE to the j'th sample by (x'_1,y'_1),(x'_2,y'_2),...,(x'_k,y'_k).
             Eventually, after next loop, d_vec[0][j] will be max{||x_j - x'_i|| : 1<=i<=k} , d_vec[1][j] will be max{||y_j - y'_i|| : 1<=i<=k}
-            Meaning- d_vec[i][j] is exactly epsilon_j,k{x_i}, (half of) the length of the hyper rectangle in the i'th dimension (i=1,2)   (see section 2.3 KSG Estimator in https://arxiv.org/pdf/1411.2003.pdf)    
+            Meaning- d_vec[i][j] is exactly 1/2 * epsilon_j,k{x_i}, (half of) the length of the hyper rectangle in the i'th dimension (i=1,2)   (see section 2.3 KSG Estimator in https://arxiv.org/pdf/1411.2003.pdf)    
         '''
         sample = -1
         for point in points:
             sample += 1
-            distances, indices = tree.query([point], k + 1)
-            #print("we are here")
-            distances = distances[
-                0]  ## just for fixing the shape... see sklearn.neighbors.BallTree documantation for query return value if not clear
-            indices = indices[0]
+            indices = tree.query([point], k + 1, return_distance=False)[0]
             for i in indices:
                 neighbor = points[i]
+                ####### old code, see bug fix below
                 if d_vec[0][sample] < np.max(np.fabs(points[sample][:-Y.shape[1]] - neighbor[:-Y.shape[1]])):
                     d_vec[0][sample] = np.max(np.fabs(points[sample][:-Y.shape[1]] - neighbor[:-Y.shape[1]]))
                 if d_vec[1][sample] < np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:])):
                     d_vec[1][sample] = np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:]))
+                ######
+                ''' NEED TO TEST MORE BEFORE PUSH!!!
+                point_x_dist_from_ith_ngbr = MI.__marginal_space_dist(point[:-Y.shape[1]], neighbor[:-Y.shape[1]], p_x)
+                point_y_dist_from_ith_ngbr = MI.__marginal_space_dist(point[-Y.shape[1]:], neighbor[-Y.shape[1]:], p_y)
+                if d_vec[0][sample] < point_x_dist_from_ith_ngbr:
+                    d_vec[0][sample] = point_x_dist_from_ith_ngbr
+                if d_vec[1][sample] < point_y_dist_from_ith_ngbr:
+                    d_vec[1][sample] = point_y_dist_from_ith_ngbr
+                '''
 
         avg_digamma = MI.avgdigamma(X, d_vec[0], p=p_x) + MI.avgdigamma(Y, d_vec[1], p=p_y)
         return digamma(N) + digamma(k) - 1 / k - avg_digamma
