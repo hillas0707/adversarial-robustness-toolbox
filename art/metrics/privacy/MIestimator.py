@@ -43,18 +43,22 @@ class MI:
         return [sum(sublist, []) for sublist in zip(*args)]
 
     @staticmethod  ## WE CHANGED ORIGINAL FUNCTION!!! NOW P IS A PARAMETER
-    def avgdigamma(points, dvec, p=float(
-        'inf')):  ## calculates the avg over N, in a specific dimension i (1 <= i <= d)! see formula 15
+    def avgdigamma(points, dvec, p=float('inf')):
+        ## calculates the avg over N, in a specific dimension i (1 <= i <= d)! see formula 15
         # This part finds number of neighbors in some radius in the marginal space
         # returns expectation value of <psi(nx)>
         N = len(points)
-        tree = ss.cKDTree(points)
+        if p != float('inf'):
+            metric = neighbors.DistanceMetric.get_metric('minkowski', p=p)
+        else:
+            metric = neighbors.DistanceMetric.get_metric('chebyshev')
+        tree = neighbors.BallTree(points, metric=metric)
         avg = 0.
         for i in range(N):
             dist = dvec[i]
             # subtlety, we don't include the boundary point,
             # but we are implicitly adding 1 to kraskov def bc center point is included
-            num_points = len(tree.query_ball_point(points[i], dist - 1e-15, p=p))
+            num_points = tree.query_radius([points[i]], dist - 1e-15, count_only=True)[0]
             avg += digamma(num_points) / N
         return avg
 
@@ -65,14 +69,15 @@ class MI:
         '''
         p_x = kwargs["metric_params"]["p_x"]
         p_y = kwargs["metric_params"]["p_y"]
-        x1 = z1[:-1]
-        x2 = z2[:-1]
+        size_of_y = kwargs["metric_params"]["size_of_y"]
+        x1 = z1[:-size_of_y]
+        x2 = z2[:-size_of_y]
         if p_x != float('inf'):
             x_dist = ss.distance.minkowski(x1, x2, p=p_x)
         else:
             x_dist = ss.distance.chebyshev(x1, x2)
-        y1 = z1[-1]
-        y2 = z2[-1]
+        y1 = z1[-size_of_y:]
+        y2 = z2[-size_of_y:]
         if p_y != float('inf'):
             y_dist = ss.distance.minkowski(y1, y2, p=p_y)
         else:
@@ -108,7 +113,7 @@ class MI:
             joint_space_metric = neighbors.DistanceMetric.get_metric('chebyshev')
         else:
             joint_space_metric = neighbors.DistanceMetric.get_metric('pyfunc', func=MI.__joint_space_dist,
-                                                                     metric_params={"p_x": p_x, "p_y": p_y})
+                                                                     metric_params={"p_x": p_x, "p_y": p_y, "size_of_y":Y.shape[1]})
         tree = neighbors.BallTree(points, metric=joint_space_metric)
         d_vec = np.zeros((2, N)) - 1
         ''' Denote the j'th sample in the marginal space Z=(X,Y) by (x_j, y_j).
@@ -120,6 +125,7 @@ class MI:
         for point in points:
             sample += 1
             distances, indices = tree.query([point], k + 1)
+            #print("we are here")
             distances = distances[
                 0]  ## just for fixing the shape... see sklearn.neighbors.BallTree documantation for query return value if not clear
             indices = indices[0]
@@ -130,7 +136,7 @@ class MI:
                 if d_vec[1][sample] < np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:])):
                     d_vec[1][sample] = np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:]))
 
-        avg_digamma = MI.avgdigamma(X, d_vec[0], p_x) + MI.avgdigamma(Y, d_vec[1], p_y)
+        avg_digamma = MI.avgdigamma(X, d_vec[0], p=p_x) + MI.avgdigamma(Y, d_vec[1], p=p_y)
         return digamma(N) + digamma(k) - 1 / k - avg_digamma
 
     @staticmethod

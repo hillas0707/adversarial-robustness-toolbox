@@ -10,13 +10,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 from sklearn import preprocessing
 from sklearn.metrics import accuracy_score
+from scipy.stats import binom
 from matplotlib import pyplot as plt
 from math import comb, log
 
 
 ## p_aplpha >= lower bound. p_alpha is the probability of MIA model making more then alpha prediction errors
 def calc_LB_prob_MIA_errors(training_data_D, output_Y, size_of_data_set, Alphas, k, p):
-    mi_D_Y = mi.mi_Kraskov_HnM(training_data_D, output_Y, k=k, p_x=p)
+    mi_D_Y = mi.mi_Kraskov_HnM(training_data_D, output_Y, k=k, p_x=p, p_y=p)                # p_y =p ?????????????????????????????????????????????/
     Print(f'\t\tMI(D,Y)={mi_D_Y}, k={k}, p={p}')
     entropy_D_orig = mi.entropy(training_data_D, k=k)
     entropy_D_p = mi.entropy(training_data_D, k=k, p=p)
@@ -76,9 +77,10 @@ def plot_mi_as_func_of_of_k(x_train, x_test, K, P, model_name, data_set_name):
 
 # calculating the probability of making at least alpha prediction mistakes given the (empirical) probability of making one mistake (assuming independence- binomial dist.)
 def calc_prob_of_alpha_mistakes(mistake_prob, alpha, size_of_data_set):
-    return sum(
-        [comb(size_of_data_set, i) * (mistake_prob ** i) * ((1 - mistake_prob) ** (size_of_data_set - i)) for i in
-         range(alpha, size_of_data_set + 1)])
+    # return sum(
+    #    [comb(size_of_data_set, i) * (mistake_prob ** i) * ((1 - mistake_prob) ** (size_of_data_set - i)) for i in
+    #     range(alpha, size_of_data_set + 1)])
+    return sum([binom.pmf(i, size_of_data_set, mistake_prob) for i in range(alpha, size_of_data_set + 1)])
 
 
 # alpha is the number of mistakes that attack makes
@@ -219,8 +221,8 @@ def analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy
         LB_p.append([])
         LB_p_wc.append([])
         for k in K:
-            mi_train[-1].append(mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p))
-            mi_test[-1].append(mi.mi_Kraskov_HnM(x_test, y_pred_test, k=k, p_x=p))
+            mi_train[-1].append(mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p, p_y=p))           # SHOULD WE USE P_Y=P??????????????????????????????
+            mi_test[-1].append(mi.mi_Kraskov_HnM(x_test, y_pred_test, k=k, p_x=p, p_y=p))
             lb_orig, lb_p, lb_p_wc = calc_LB_prob_MIA_errors(x_train, y_pred_train, size_of_data_set, Alphas, k=k, p=p)
             LB_orig[-1].append(lb_orig)
             LB_p[-1].append(lb_p)
@@ -273,26 +275,84 @@ def test_landsat_with_multiple_models():
     Print("testing with landsat data...")
     landsat_train = np.loadtxt('sat.trn', delimiter=',')
     landsat_test = np.loadtxt('sat.tst', delimiter=',')
+    y_train = landsat_train[:, -1]
+    y_test = landsat_test[:, -1]
     landsat_train_normalized = preprocessing.MinMaxScaler().fit_transform(landsat_train)
     landsat_test_normalized = preprocessing.MinMaxScaler().fit_transform(landsat_test)
     x_train = landsat_train_normalized[:, :-1]  # deleting labels from samples- train set
     x_test = landsat_test_normalized[:, :-1]  # deleting labels from samples- test set
-    y_train = landsat_train_normalized[:, -1]  # labels of samples- train set
-    y_test = landsat_test_normalized[:, -1]  # labels of samples- test set
+    num_of_samples = 800
+    x_train = x_train[:num_of_samples]
+    x_test = x_test[:num_of_samples]
+    y_train = y_train[:num_of_samples]
+    y_test = y_test[:num_of_samples]
+    label_encoder = preprocessing.LabelEncoder()
+    y = np.concatenate((y_train, y_test))
+    label_encoder.fit(y)
+    y_train = label_encoder.transform(y_train)
+    y_test = label_encoder.transform(y_test)
     analyze_all_models(x_train, x_test, y_train, y_test, "landsat")
+
+def test_landsat_manually():
+    Print("testing with landsat data... MANUALLY")
+    landsat_train = np.loadtxt('sat.trn', delimiter=',')
+    landsat_test = np.loadtxt('sat.tst', delimiter=',')
+    y_train = landsat_train[:, -1]
+    y_test = landsat_test[:, -1]
+    landsat_train_normalized = preprocessing.MinMaxScaler().fit_transform(landsat_train)
+    landsat_test_normalized = preprocessing.MinMaxScaler().fit_transform(landsat_test)
+    x_train = landsat_train_normalized[:, :-1]  # deleting labels from samples- train set
+    x_test = landsat_test_normalized[:, :-1]  # deleting labels from samples- test set
+    num_of_samples = 1000
+    x_train = x_train[:num_of_samples]
+    x_test = x_test[:num_of_samples]
+    y_train = y_train[:num_of_samples]
+    y_test = y_test[:num_of_samples]
+    label_encoder = preprocessing.LabelEncoder()
+    y = np.concatenate((y_train, y_test))
+    print(y.shape)
+    label_encoder.fit(y)
+    y_train = label_encoder.transform(y_train)
+    y_test = label_encoder.transform(y_test)
+
+    ##y_train = landsat_train_normalized[:, -1]  # labels of samples- train set
+    ##y_test = landsat_test_normalized[:, -1]  # labels of samples- test set
+    #analyze_all_models(x_train, x_test, y_train, y_test, "landsat")
+    clf = LogisticRegression(random_state=42, max_iter=150)
+    y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
+                                                                                                            x_test,
+                                                                                                            y_train,
+                                                                                                            y_test,
+                                                                                                            clf)
+    Print("y_pred_train shape", y_pred_train.shape)
+    Print("y_pred_test shape", y_pred_test.shape)
+    K = [2, 3, 5, 11]
+    P = [2.0, 1.0]
+    for p in P:
+        for k in K:
+            Print(f"p={p}, k={k}, MI train: ", mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p, p_y=p))
+            Print(f"p={p}, k={k}, MI test: ", mi.mi_Kraskov_HnM(x_test, y_pred_test, k=k, p_x=p, p_y=p))
+            Print(f"p={p}, k={k},entropy orig: ", mi.entropy(x_train, k=k))
+            Print(f"p={p}, k={k},entropy p norm: ", mi.entropy(x_train, k=k, p=p))
+            Print(f"p={p}, k={k},entropy p norm with correction: ", mi.entropy_with_correction(x_train, k=k, p=p))
+
+
+
+
 
 
 def main():
     Print("----- STARTING TESTS! ------")
-    test_german_with_multiple_models()
+    #test_german_with_multiple_models()
     test_landsat_with_multiple_models()
+    #test_landsat_manually()
     Print("----- DONE :) -----")
 
 
 def Print(string, *args):
     print(string, *args)
     print(string, *args, file=output)
-    #output.flush()
+    # output.flush()
 
 
 if __name__ == "__main__":
