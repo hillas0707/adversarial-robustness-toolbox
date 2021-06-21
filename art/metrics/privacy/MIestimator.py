@@ -121,7 +121,8 @@ class MI:
             joint_space_metric = neighbors.DistanceMetric.get_metric('chebyshev')
         else:
             joint_space_metric = neighbors.DistanceMetric.get_metric('pyfunc', func=MI.__joint_space_dist,
-                                                                     metric_params={"p_x": p_x, "p_y": p_y, "size_of_y":Y.shape[1]})
+                                                                     metric_params={"p_x": p_x, "p_y": p_y,
+                                                                                    "size_of_y": Y.shape[1]})
         tree = neighbors.BallTree(points, metric=joint_space_metric)
         d_vec = np.zeros((2, N)) - 1
         ''' Denote the j'th sample in the marginal space Z=(X,Y) by (x_j, y_j).
@@ -136,19 +137,20 @@ class MI:
             for i in indices:
                 neighbor = points[i]
                 ####### old code, see bug fix below
+                '''''
                 if d_vec[0][sample] < np.max(np.fabs(points[sample][:-Y.shape[1]] - neighbor[:-Y.shape[1]])):
                     d_vec[0][sample] = np.max(np.fabs(points[sample][:-Y.shape[1]] - neighbor[:-Y.shape[1]]))
                 if d_vec[1][sample] < np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:])):
                     d_vec[1][sample] = np.max(np.fabs(points[sample][-Y.shape[1]:] - neighbor[-Y.shape[1]:]))
                 ######
-                ''' NEED TO TEST MORE BEFORE PUSH!!!
+                '''''
+                ### NEED TO TEST MORE BEFORE PUSH!!!
                 point_x_dist_from_ith_ngbr = MI.__marginal_space_dist(point[:-Y.shape[1]], neighbor[:-Y.shape[1]], p_x)
                 point_y_dist_from_ith_ngbr = MI.__marginal_space_dist(point[-Y.shape[1]:], neighbor[-Y.shape[1]:], p_y)
                 if d_vec[0][sample] < point_x_dist_from_ith_ngbr:
                     d_vec[0][sample] = point_x_dist_from_ith_ngbr
                 if d_vec[1][sample] < point_y_dist_from_ith_ngbr:
                     d_vec[1][sample] = point_y_dist_from_ith_ngbr
-                '''
 
         avg_digamma = MI.avgdigamma(X, d_vec[0], p=p_x) + MI.avgdigamma(Y, d_vec[1], p=p_y)
         return digamma(N) + digamma(k) - 1 / k - avg_digamma
@@ -375,9 +377,9 @@ class MI:
         nn = [tree.query([point], k + 1)[0][0][k] for point in x]  ## in the ith entry 0.5epsilon_i,k
         const = digamma(N) - digamma(k) + d * log(2)  ## last term is to correct 0.5epsilon to epsilonxc
         if p != float('inf'):
-            const += log((gamma(1 + 1 / p)) / gamma(1 + d / p))           ## adding log c_d as in Kraskuv eq. 20 (c_d = {volume of d dim. unit ball in p norm} / 2^d)
+            const += log((gamma(1 + 1 / p)) / gamma(
+                1 + d / p))  ## adding log c_d as in Kraskuv eq. 20 (c_d = {volume of d dim. unit ball in p norm} / 2^d)
         return (const + d * np.mean(list(map(log, nn)))) / log(base)  ## formula 14
-
 
 '''
 N = 5000  # total number of samples
@@ -397,11 +399,23 @@ usedN = 500  # number of samples used for calculation
 print('Testing 2D linear relationship Y=X+Uniform_Noise')
 print('noise level=' + str(noise) + ", Nsamples = " + str(usedN))
 print('True MI(x:y)', MI.entropy(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
-print('True MI(x:y) ballll', MI.entropy_ball(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
-print('Kraskov MI(x:y)', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+print('True MI(x:y) entropy with correction',
+      MI.entropy_with_correction(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('Kraskov MI(x:y) k=1 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=3 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=3, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=5 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=5, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=11 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=11, base=np.exp(1), intens=0.0))
 Y = [[z] for z in y[:usedN]]
 X = [[z] for z in x[:usedN]]
-print('Kraskov hnmmmmm MI(x:y)', MI.mi_Kraskov_HnM(X, Y, k=1,p_x=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2, k=1 ', MI.mi_Kraskov_HnM(X, Y, k=1, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=3 ', MI.mi_Kraskov_HnM(X, Y, k=3, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=5 ', MI.mi_Kraskov_HnM(X, Y, k=5, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=11', MI.mi_Kraskov_HnM(X, Y, k=11, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF, k=1 ', MI.mi_Kraskov_HnM(X, Y, k=1, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=3 ', MI.mi_Kraskov_HnM(X, Y, k=3, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=5 ', MI.mi_Kraskov_HnM(X, Y, k=5, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=11', MI.mi_Kraskov_HnM(X, Y, k=11, base=np.exp(1), intens=0.0))
+
 print('LNC MI(x:y)', MI.mi_LNC([x[:usedN], y[:usedN]], k=5, base=np.exp(1), alpha=0.25, intens=0.0))
 print()
 
@@ -420,15 +434,23 @@ usedN = 1000  # number of samples used for calculation
 print('Testing 2D quadratic relationship Y=X^2+Uniform_Noise')
 print('noise level=' + str(noise) + ", Nsamples = " + str(usedN))
 print('True MI(x:y)', MI.entropy(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
-print('True MI(x:y) ballll', MI.entropy_ball(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
-print('Kraskov MI(x:y)', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+print('True MI(x:y) entropy with correction', MI.entropy_with_correction(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('Kraskov MI(x:y) k=1 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=3 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=3, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=5 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=5, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=11 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=11, base=np.exp(1), intens=0.0))
 Y = [[z] for z in y[:usedN]]
 X = [[z] for z in x[:usedN]]
-print('Kraskov hnmmmm MI(x:y)', MI.mi_Kraskov_HnM(X, Y, k=1, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=1 ', MI.mi_Kraskov_HnM(X, Y, k=1, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=3 ', MI.mi_Kraskov_HnM(X, Y, k=3, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=5 ', MI.mi_Kraskov_HnM(X, Y, k=5, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=11 ', MI.mi_Kraskov_HnM(X, Y, k=11, p_x=2.0, p_y=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=1 ', MI.mi_Kraskov_HnM(X, Y, k=1, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=3 ', MI.mi_Kraskov_HnM(X, Y, k=3, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=5 ', MI.mi_Kraskov_HnM(X, Y, k=5, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=11 ', MI.mi_Kraskov_HnM(X, Y, k=11, base=np.exp(1), intens=0.0))
 print('LNC MI(x:y)', MI.mi_LNC([x[:usedN], y[:usedN]], k=5, base=np.exp(1), alpha=0.25, intens=0.0))
 print()
-
-print("blaaaaaaaaaaaaaaaaa")
 
 # 2D Quadratic
 noise = 1e-7
@@ -445,11 +467,22 @@ usedN = 1000  # number of samples used for calculation
 print('Testing 2D quadratic relationship Y=X^2+Uniform_Noise')
 print('noise level=' + str(noise) + ", Nsamples = " + str(usedN))
 print('True MI(x:y)', MI.entropy(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
-print('True MI(x:y) ballll', MI.entropy_ball(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
-print('Kraskov MI(x:y)', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
-Y = [[z,z,z] for z in y[:usedN]]
-X = [[z,z+1,z,z+3,z,z+2.3,z] for z in x[:usedN]]
-print('Kraskov hnmmmm MI(x:y)', MI.mi_Kraskov_HnM(X, Y, k=1, p_y=2.0,p_x=2.0,  base=np.exp(1), intens=0.0))
+print('True MI(x:y) entropy with correction', MI.entropy_with_correction(y_for_ent[:1000], k=1, base=np.exp(1), intens=0.0) - log(noise))
+print('Kraskov MI(x:y) k=1 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=1, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=3 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=3, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=5 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=5, base=np.exp(1), intens=0.0))
+print('Kraskov MI(x:y) k=11 ', MI.mi_Kraskov([x[:usedN], y[:usedN]], k=11, base=np.exp(1), intens=0.0))
+Y = [[z, z, z] for z in y[:usedN]]
+X = [[z, z + 1, z, z + 3, z, z + 2.3, z] for z in x[:usedN]]
+print('Kraskov hnm MI(x:y) p=2 k=1 ', MI.mi_Kraskov_HnM(X, Y, k=1, p_y=2.0, p_x=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=3 ', MI.mi_Kraskov_HnM(X, Y, k=5, p_y=2.0, p_x=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=5 ', MI.mi_Kraskov_HnM(X, Y, k=3, p_y=2.0, p_x=2.0, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=2 k=11 ', MI.mi_Kraskov_HnM(X, Y, k=11, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=1 ', MI.mi_Kraskov_HnM(X, Y, k=1, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=3 ', MI.mi_Kraskov_HnM(X, Y, k=3, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=5 ', MI.mi_Kraskov_HnM(X, Y, k=5, base=np.exp(1), intens=0.0))
+print('Kraskov hnm MI(x:y) p=INF k=11 ', MI.mi_Kraskov_HnM(X, Y, k=11, base=np.exp(1), intens=0.0))
 print('LNC MI(x:y)', MI.mi_LNC([x[:usedN], y[:usedN]], k=5, base=np.exp(1), alpha=0.25, intens=0.0))
 print()
+
 '''

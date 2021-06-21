@@ -13,11 +13,14 @@ from sklearn.metrics import accuracy_score
 from scipy.stats import binom
 from matplotlib import pyplot as plt
 from math import comb, log
+import pandas as pd
+import pickle
 
 
 ## p_aplpha >= lower bound. p_alpha is the probability of MIA model making more then alpha prediction errors
 def calc_LB_prob_MIA_errors(training_data_D, output_Y, size_of_data_set, Alphas, k, p):
-    mi_D_Y = mi.mi_Kraskov_HnM(training_data_D, output_Y, k=k, p_x=p, p_y=p)                # p_y =p ?????????????????????????????????????????????/
+    mi_D_Y = mi.mi_Kraskov_HnM(training_data_D, output_Y, k=k, p_x=p,
+                               p_y=p)  # p_y =p ?????????????????????????????????????????????/
     Print(f'\t\tMI(D,Y)={mi_D_Y}, k={k}, p={p}')
     entropy_D_orig = mi.entropy(training_data_D, k=k)
     entropy_D_p = mi.entropy(training_data_D, k=k, p=p)
@@ -98,7 +101,7 @@ def plot_probabilities_as_func_of_alpha(LBs, p_alphas, Alphas, K, p, model_name,
     plt.savefig(f'prob(alpha), p={p}, {model_name}, {data_set_name}, {args[0]}.png')
 
 
-def run_bb_attack(x_train, x_test, y_train, y_test, model):
+def run_bb_attack(x_train, x_test, y_train, y_test, model, rf=False):
     model.fit(x_train, y_train)
     y_pred_train = model.predict_proba(x_train)
     y_pred_test = model.predict_proba(x_test)
@@ -122,7 +125,10 @@ def run_bb_attack(x_train, x_test, y_train, y_test, model):
                                                                                                         test_size=0.5,
                                                                                                         random_state=42)
     classifier = ScikitlearnClassifier(model)
-    attack = MembershipInferenceBlackBox(classifier)
+    if rf:
+        attack = MembershipInferenceBlackBox(classifier)
+    else:
+        attack = MembershipInferenceBlackBox(classifier, attack_model_type='rf')
     attack.fit(x_train_attack_train, y_train_attack_train, x_test_attack_train, y_test_attack_train)
 
     x_attack_test = np.concatenate((x_train_attack_test, x_test_attack_test))
@@ -160,8 +166,10 @@ def analyze_logistic_regression(x_train, x_test, y_train, y_test, data_set_name)
                                                                                                             y_train,
                                                                                                             y_test,
                                                                                                             clf)
-    analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-            "Logistic Regression", data_set_name)
+    # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
+    # "Logistic Regression", data_set_name)
+    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
+             "Logistic Regression", data_set_name)
 
 
 def analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name):
@@ -172,8 +180,10 @@ def analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name):
                                                                                                             y_train,
                                                                                                             y_test,
                                                                                                             clf)
-    analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-            "Decision Tree", data_set_name)
+    # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
+    # "Decision Tree", data_set_name)
+    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
+             "Decision Tree", data_set_name)
 
 
 def analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_name):
@@ -184,8 +194,10 @@ def analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_nam
                                                                                                             y_train,
                                                                                                             y_test,
                                                                                                             clf)
-    analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-            "MLP", data_set_name)
+    # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
+    # "MLP", data_set_name)
+    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, "MLP",
+             data_set_name)
 
 
 def analyze_RandomForestClassifier(x_train, x_test, y_train, y_test, data_set_name):
@@ -196,8 +208,24 @@ def analyze_RandomForestClassifier(x_train, x_test, y_train, y_test, data_set_na
                                                                                                             y_train,
                                                                                                             y_test,
                                                                                                             clf)
-    analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
-            mistake_prob, "Random Forest", data_set_name)
+    # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
+    # mistake_prob, "Random Forest", data_set_name)
+    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
+             "Random Forest", data_set_name)
+
+
+def analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, model_name,
+             data_set_name):
+    K = [1, 3, 5, 11]
+    P = [float('inf'), 2.0, 1.0]
+    size_of_train_data = x_train.shape[0]
+    for k in K:
+        for p in P:
+            mi_train = mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p, p_y=p)
+            Print(f"\t\tk={k}, p={p}, mi={mi_train}")
+            data = {"model": model_name, "data set": data_set_name, "attack acc": attack_accuracy, "mi": mi_train,
+                    "k": k, "p": p, "size": size_of_train_data}
+            pickle.dump(data, pickle_file)
 
 
 def analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
@@ -221,7 +249,8 @@ def analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy
         LB_p.append([])
         LB_p_wc.append([])
         for k in K:
-            mi_train[-1].append(mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p, p_y=p))           # SHOULD WE USE P_Y=P??????????????????????????????
+            mi_train[-1].append(mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p,
+                                                  p_y=p))  # SHOULD WE USE P_Y=P??????????????????????????????
             mi_test[-1].append(mi.mi_Kraskov_HnM(x_test, y_pred_test, k=k, p_x=p, p_y=p))
             lb_orig, lb_p, lb_p_wc = calc_LB_prob_MIA_errors(x_train, y_pred_train, size_of_data_set, Alphas, k=k, p=p)
             LB_orig[-1].append(lb_orig)
@@ -293,6 +322,7 @@ def test_landsat_with_multiple_models():
     y_test = label_encoder.transform(y_test)
     analyze_all_models(x_train, x_test, y_train, y_test, "landsat")
 
+
 def test_landsat_manually():
     Print("testing with landsat data... MANUALLY")
     landsat_train = np.loadtxt('sat.trn', delimiter=',')
@@ -317,7 +347,7 @@ def test_landsat_manually():
 
     ##y_train = landsat_train_normalized[:, -1]  # labels of samples- train set
     ##y_test = landsat_test_normalized[:, -1]  # labels of samples- test set
-    #analyze_all_models(x_train, x_test, y_train, y_test, "landsat")
+    # analyze_all_models(x_train, x_test, y_train, y_test, "landsat")
     clf = LogisticRegression(random_state=42, max_iter=150)
     y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
                                                                                                             x_test,
@@ -337,15 +367,75 @@ def test_landsat_manually():
             Print(f"p={p}, k={k},entropy p norm with correction: ", mi.entropy_with_correction(x_train, k=k, p=p))
 
 
+def test_loan_with_miltiple_models():
+    Print("testing with loan data...")
+    loan = np.loadtxt('loan_train_from_abigail.csv', delimiter=',')
+    loan_normalized = preprocessing.MinMaxScaler().fit_transform(loan)
+    loan_normalized = loan_normalized[:2000]
+    x = loan_normalized[:, :-1]  # deleting labels from samples
+    y = loan_normalized[:, -1]  # labels of samples
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.5, random_state=42)
+    analyze_all_models(x_train, x_test, y_train, y_test, 'loan')
 
 
+def unpickle_and_plot_results():
+    data = []
+    with open("picklefile", 'rb') as pf:
+        try:
+            while True:
+                data.append(pickle.load(pf))
+        except EOFError:
+            pass
+    df = pd.DataFrame(data)
+    pd.DataFrame.to_csv(df, "res.csv")
+    #df = df.head(n=87)
+    #print(len(df))
+    K = df["k"].unique()
+    P = df["p"].unique()
+    datasets = df["data set"].unique()
+    colors = ['r', 'g', 'b']
+    markers = [".", "v", "p", "+"]
+    assert len(P) == len(colors)
+    for ds in datasets:
+        mis = df.loc[df["data set"] == ds]
+        attack_acc = df.loc[df["data set"] == ds]
+        model = df.loc[df["data set"] == ds]
+        for k in K:
+            mis_k = mis.loc[mis["k"] == k, "mi"]
+            attack_acc_k = attack_acc.loc[attack_acc["k"] == k, "attack acc"]
+            model_k = model.loc[model["k"] == k, "model"]
+            assert len(attack_acc_k) == len(mis_k) == len(model_k)
+            plt.figure()
+            for i in range(len(P)):
+                mis_p = mis_k[i::len(P)]
+                attack_acc_p = attack_acc_k[i::len(P)]
+                model_p = model_k[i::len(P)]
+                mis_p = mis_p.tolist()
+                attack_acc_p= attack_acc_p.tolist()
+                model_p.values.tolist()
+                plt.scatter(mis_p[0], attack_acc_p[0], label=f"p={P[i]} lr", color=colors[i], marker=markers[0])
+                plt.scatter(mis_p[1], attack_acc_p[1], label=f"p={P[i]} dt", color=colors[i], marker=markers[1])
+                plt.scatter(mis_p[2], attack_acc_p[2], label=f"p={P[i]} mlp", color=colors[i], marker=markers[2])
+                plt.scatter(mis_p[3], attack_acc_p[3], label=f"p={P[i]} rf", color=colors[i], marker=markers[3])
+            plt.title(f"MI(D,Y) VS. bb attack accuracy- {ds}, k={k}")
+            plt.xlabel("MI")
+            plt.ylabel("attack accuracy")
+            plt.legend()
+            plt.show()
+            plt.savefig(f'MI(D,Y) VS attack acc {ds} k={k}.png')
+
+        # print (f"K IS {k}")
+        # print(mis)
 
 
 def main():
     Print("----- STARTING TESTS! ------")
-    #test_german_with_multiple_models()
+    test_german_with_multiple_models()
     test_landsat_with_multiple_models()
-    #test_landsat_manually()
+    test_loan_with_miltiple_models()
+    unpickle_and_plot_results()
+    # test_landsat_manually()
+
     Print("----- DONE :) -----")
 
 
@@ -357,6 +447,7 @@ def Print(string, *args):
 
 if __name__ == "__main__":
     output = open("log.txt", "a", 1)
+    pickle_file = open("picklefile", "ab", 1)
     main()
     output.close()
 
