@@ -175,20 +175,26 @@ def analyze_logistic_regression(x_train, x_test, y_train, y_test, data_set_name)
         y_train,
         y_test,
         clf, attack_type="black box")
-    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-        x_train,
-        x_test,
-        y_train,
-        y_test,
-        clf, attack_type="label only decision boundary")
-    assert (y_pred_train_bb == y_pred_train_ldb).all()
-    assert (y_pred_test_bb == y_pred_test_ldb).all()
-    assert accuracy_test_bb == accuracy_test_ldb
-    assert accuracy_train_bb == accuracy_train_ldb
+   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+    #    x_train,
+    #    x_test,
+    #    y_train,
+    #    y_test,
+    #    clf, attack_type="label only decision boundary")
+    #assert (y_pred_train_bb == y_pred_train_ldb).all()
+    #assert (y_pred_test_bb == y_pred_test_ldb).all()
+    #assert accuracy_test_bb == accuracy_test_ldb
+    #assert accuracy_train_bb == accuracy_train_ldb
+
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-    # "Decision Tree", data_set_name)
-    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+    # "Logistic Regression", data_set_name)
+
+    #attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    attack_accuracy = [attack_accuracy_bb, 0]
+    #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+             #"Logistic Regression", data_set_name)
+
+    analyze3(x_train, x_test, y_pred_train_bb, y_pred_test_bb, y_train, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              "Logistic Regression", data_set_name)
 
 
@@ -201,20 +207,27 @@ def analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name):
         y_train,
         y_test,
         clf, attack_type="black box")
-    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-        x_train,
-        x_test,
-        y_train,
-        y_test,
-        clf, attack_type="label only decision boundary")
-    assert (y_pred_train_bb == y_pred_train_ldb).all()
-    assert (y_pred_test_bb == y_pred_test_ldb).all()
-    assert accuracy_test_bb == accuracy_test_ldb
-    assert accuracy_train_bb == accuracy_train_ldb
+   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+   #     x_train,
+   #     x_test,
+   #     y_train,
+   #     y_test,
+   #     clf, attack_type="label only decision boundary")
+   # assert (y_pred_train_bb == y_pred_train_ldb).all()
+   # assert (y_pred_test_bb == y_pred_test_ldb).all()
+   # assert accuracy_test_bb == accuracy_test_ldb
+   # assert accuracy_train_bb == accuracy_train_ldb
+
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
     # "Decision Tree", data_set_name)
-    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+
+    #attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    attack_accuracy = [attack_accuracy_bb, 0]
+
+    #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+             #"Decision Tree", data_set_name)
+
+    analyze3(x_train, x_test, y_pred_train_bb, y_pred_test_bb, y_train, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              "Decision Tree", data_set_name)
 
 
@@ -227,20 +240,27 @@ def analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_nam
         y_train,
         y_test,
         clf, attack_type="black box")
-    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-        x_train,
-        x_test,
-        y_train,
-        y_test,
-        clf, attack_type="label only decision boundary")
-    assert (y_pred_train_bb == y_pred_train_ldb).all()
-    assert (y_pred_test_bb == y_pred_test_ldb).all()
-    assert accuracy_test_bb == accuracy_test_ldb
-    assert accuracy_train_bb == accuracy_train_ldb
+   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+   #     x_train,
+   #     x_test,
+   #     y_train,
+   #     y_test,
+   #     clf, attack_type="label only decision boundary")
+   # assert (y_pred_train_bb == y_pred_train_ldb).all()
+   # assert (y_pred_test_bb == y_pred_test_ldb).all()
+   # assert accuracy_test_bb == accuracy_test_ldb
+   # assert accuracy_train_bb == accuracy_train_ldb
+
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-    # "Decision Tree", data_set_name)
-    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+    # "MLP", data_set_name)
+
+    #attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    attack_accuracy = [attack_accuracy_bb, 0]
+
+    #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+             #"MLP", data_set_name)
+
+    analyze3(x_train, x_test, y_pred_train_bb, y_pred_test_bb, y_train, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              "MLP", data_set_name)
 
 
@@ -253,21 +273,60 @@ def analyze_RandomForestClassifier(x_train, x_test, y_train, y_test, data_set_na
         y_train,
         y_test,
         clf, attack_type="black box")
-    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-        x_train,
-        x_test,
-        y_train,
-        y_test,
-        clf, attack_type="label only decision boundary")
-    assert (y_pred_train_bb == y_pred_train_ldb).all()
-    assert (y_pred_test_bb == y_pred_test_ldb).all()
-    assert accuracy_test_bb == accuracy_test_ldb
-    assert accuracy_train_bb == accuracy_train_ldb
+   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+   #     x_train,
+   #     x_test,
+   #     y_train,
+   #     y_test,
+   #     clf, attack_type="label only decision boundary")
+   # assert (y_pred_train_bb == y_pred_train_ldb).all()
+   # assert (y_pred_test_bb == y_pred_test_ldb).all()
+   # assert accuracy_test_bb == accuracy_test_ldb
+   # assert accuracy_train_bb == accuracy_train_ldb
+
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-    # "Decision Tree", data_set_name)
-    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+    # "Random Forest", data_set_name)
+
+   # attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    attack_accuracy = [attack_accuracy_bb, 0]
+
+    #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+             #"Random Forest", data_set_name)
+
+    analyze3(x_train, x_test, y_pred_train_bb, y_pred_test_bb, y_train, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              "Random Forest", data_set_name)
+
+def analyze3(x_train, x_test, y_pred_train, y_pred_test, y_train, accuracy_train, accuracy_test, attack_accuracy, model_name,
+             data_set_name):
+    K = [1, 3, 5, 11]
+    P = [float('inf'), 2.0, 1.0]
+    size_of_train_data = x_train.shape[0]
+
+    Y = [[y_pred_train[i][int(y_train[i])]] for i in range(len(y_train))]
+
+    for k in K:
+        for p in P:
+            mi_train = mi.mi_Kraskov_HnM(x_train, Y, k=k, p_x=p, p_y=p)
+            Print(f"\t\tk={k}, p={p}, mi={mi_train}")
+            entropy_orig = mi.entropy(x_train, k=k)
+            entropy_p = mi.entropy(x_train, k=k, p=p)
+            entropy_p_wc = mi.entropy_with_correction(x_train, k=k, p=p)
+
+            alpha = int(size_of_train_data / 2)
+            const = log(sum([comb(size_of_train_data, i) for i in range(alpha + 1)]))
+            LB_orig = (entropy_orig - mi_train - 1 - const) / (size_of_train_data - const)
+            LB_p = (entropy_p - mi_train - 1 - const) / (size_of_train_data - const)
+            LB_p_wc = (entropy_p_wc - mi_train - 1 - const) / (size_of_train_data - const)
+
+            data = {"model": model_name, "data set": data_set_name, "model accuracy- train": accuracy_train,
+                    "model acc, test": accuracy_test, "attack acc bb": attack_accuracy[0],
+                    "attack acc ldb": attack_accuracy[1], "mi": mi_train, "entropy- orig": entropy_orig,
+                    "entropy- p": entropy_p, "entropy- p with correction": entropy_p_wc,
+                    "LB on prob of attack making more than 0.5|D| mistakes, orig": LB_orig, "LB on prob.. , p": LB_p,
+                    "LB on prob.., p with correction": LB_p_wc,
+                    "k": k, "p": p, "size": size_of_train_data}
+            with open("picklefile", 'ab') as pf:
+                pickle.dump(data, pf)
 
 
 def analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, model_name,
@@ -533,10 +592,6 @@ def unpickle_and_plot_results2():
             plt.legend()
             plt.savefig(f'MI VS ldb attack acc p={p} k={k}.png')
             plt.close()
-
-
-
-
 
 
 def unpickle_and_plot_results():
