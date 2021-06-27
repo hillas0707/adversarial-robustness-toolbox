@@ -1,5 +1,6 @@
 from art.metrics.privacy.MIestimator import MI as mi
 from art.attacks.inference.membership_inference.black_box import MembershipInferenceBlackBox
+from art.attacks.inference.membership_inference.label_only_boundary_distance import LabelOnlyDecisionBoundary
 from art.estimators.classification.scikitlearn import ScikitlearnClassifier
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -21,7 +22,7 @@ import pickle
 def calc_LB_prob_MIA_errors(training_data_D, output_Y, size_of_data_set, Alphas, k, p):
     mi_D_Y = mi.mi_Kraskov_HnM(training_data_D, output_Y, k=k, p_x=p,
                                p_y=p)  # p_y =p ?????????????????????????????????????????????/
-    Print(f'\t\tMI(D,Y)={mi_D_Y}, k={k}, p={p}')
+    # Print(f'\t\tMI(D,Y)={mi_D_Y}, k={k}, p={p}')
     entropy_D_orig = mi.entropy(training_data_D, k=k)
     entropy_D_p = mi.entropy(training_data_D, k=k, p=p)
     entropy_D_p_wc = mi.entropy_with_correction(training_data_D, k=k, p=p)
@@ -101,7 +102,8 @@ def plot_probabilities_as_func_of_alpha(LBs, p_alphas, Alphas, K, p, model_name,
     plt.savefig(f'prob(alpha), p={p}, {model_name}, {data_set_name}, {args[0]}.png')
 
 
-def run_bb_attack(x_train, x_test, y_train, y_test, model, rf=False):
+def run_inference_attacks(x_train, x_test, y_train, y_test, model, attack_type="black box", rf=True):
+    Print(f"\trunning {attack_type} attack:")
     model.fit(x_train, y_train)
     y_pred_train = model.predict_proba(x_train)
     y_pred_test = model.predict_proba(x_test)
@@ -120,16 +122,22 @@ def run_bb_attack(x_train, x_test, y_train, y_test, model, rf=False):
     x_train_attack_train, x_train_attack_test, y_train_attack_train, y_train_attack_test = train_test_split(x_train,
                                                                                                             y_train,
                                                                                                             test_size=0.5,
-                                                                                                            random_state=42)
+                                                                                                            shuffle=False)
     x_test_attack_train, x_test_attack_test, y_test_attack_train, y_test_attack_test = train_test_split(x_test, y_test,
                                                                                                         test_size=0.5,
-                                                                                                        random_state=42)
+                                                                                                        shuffle=False)
     classifier = ScikitlearnClassifier(model)
-    if rf:
-        attack = MembershipInferenceBlackBox(classifier)
+    if attack_type == "black box":
+        if rf:
+            attack = MembershipInferenceBlackBox(classifier, attack_model_type='rf')
+        else:
+            attack = MembershipInferenceBlackBox(classifier)
+        attack.fit(x_train_attack_train, y_train_attack_train, x_test_attack_train, y_test_attack_train)
     else:
-        attack = MembershipInferenceBlackBox(classifier, attack_model_type='rf')
-    attack.fit(x_train_attack_train, y_train_attack_train, x_test_attack_train, y_test_attack_train)
+        assert attack_type == "label only decision boundary", "attack type should be black box or label only decision boundary"
+        attack = LabelOnlyDecisionBoundary(classifier)
+        attack.calibrate_distance_threshold(x_train_attack_train, y_train_attack_train, x_test_attack_train,
+                                            y_test_attack_train)
 
     x_attack_test = np.concatenate((x_train_attack_test, x_test_attack_test))
     y_attack_test = np.concatenate((y_train_attack_test, y_test_attack_test))
@@ -145,7 +153,7 @@ def run_bb_attack(x_train, x_test, y_train, y_test, model, rf=False):
     inferred_membership = attack.infer(x_attack_test, y_attack_test)
     # Print(infered_membership.shape)
     TN, FP, FN, TP = confusion_matrix(true_membership, inferred_membership).ravel()
-    Print("\t\tconfusion mat of inference attack:")
+    Print(f"\t\tconfusion mat of {attack_type} inference attack:")
     Print("\t\tTN ", TN)
     Print("\t\tFP ", FP)
     Print("\t\tFN ", FN)
@@ -154,63 +162,111 @@ def run_bb_attack(x_train, x_test, y_train, y_test, model, rf=False):
     # attack_accuracy = accuracy_score(true_membership, inferred_membership)
     assert attack_accuracy == accuracy_score(true_membership, inferred_membership)
     mistake_prob = (FP + FN) / (TN + FP + FN + TP)
-    Print("\t\tblack box attack accuracy ", attack_accuracy)
+    Print(f"\t\t{attack_type} accuracy ", attack_accuracy)
     return y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob
 
 
 def analyze_logistic_regression(x_train, x_test, y_train, y_test, data_set_name):
-    Print(f'\t##running black box attack - Logistic Regression')
+    Print(f'\t##running inference attacks - Logistic Regression')
     clf = LogisticRegression(random_state=42, max_iter=150)
-    y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
-                                                                                                            x_test,
-                                                                                                            y_train,
-                                                                                                            y_test,
-                                                                                                            clf)
+    y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy_bb, mistake_prob_bb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="black box")
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-    # "Logistic Regression", data_set_name)
-    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
+    # "Decision Tree", data_set_name)
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              "Logistic Regression", data_set_name)
 
 
 def analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name):
-    Print(f'\t##running black box attack - Decision Tree')
+    Print(f'\t##running inference attacks - Decision Tree')
     clf = DecisionTreeClassifier(random_state=0)
-    y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
-                                                                                                            x_test,
-                                                                                                            y_train,
-                                                                                                            y_test,
-                                                                                                            clf)
+    y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy_bb, mistake_prob_bb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="black box")
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
     # "Decision Tree", data_set_name)
-    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              "Decision Tree", data_set_name)
 
 
 def analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_name):
     Print(f'\t##running black box attack - MLP')
     clf = MLPClassifier(random_state=0)
-    y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
-                                                                                                            x_test,
-                                                                                                            y_train,
-                                                                                                            y_test,
-                                                                                                            clf)
+    y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy_bb, mistake_prob_bb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="black box")
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
-    # "MLP", data_set_name)
-    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, "MLP",
-             data_set_name)
+    # "Decision Tree", data_set_name)
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
+             "MLP", data_set_name)
 
 
 def analyze_RandomForestClassifier(x_train, x_test, y_train, y_test, data_set_name):
     Print(f'\t##running black box attack - Random Forest')
     clf = RandomForestClassifier(random_state=0)
-    y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
-                                                                                                            x_test,
-                                                                                                            y_train,
-                                                                                                            y_test,
-                                                                                                            clf)
-    # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
-    # mistake_prob, "Random Forest", data_set_name)
-    analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy,
+    y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy_bb, mistake_prob_bb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="black box")
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
+    # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
+    # "Decision Tree", data_set_name)
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              "Random Forest", data_set_name)
 
 
@@ -223,9 +279,25 @@ def analyze2(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accurac
         for p in P:
             mi_train = mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p, p_y=p)
             Print(f"\t\tk={k}, p={p}, mi={mi_train}")
-            data = {"model": model_name, "data set": data_set_name, "attack acc": attack_accuracy, "mi": mi_train,
+            entropy_orig = mi.entropy(x_train, k=k)
+            entropy_p = mi.entropy(x_train, k=k, p=p)
+            entropy_p_wc = mi.entropy_with_correction(x_train, k=k, p=p)
+
+            alpha = int(size_of_train_data / 2)
+            const = log(sum([comb(size_of_train_data, i) for i in range(alpha + 1)]))
+            LB_orig = (entropy_orig - mi_train - 1 - const) / (size_of_train_data - const)
+            LB_p = (entropy_p - mi_train - 1 - const) / (size_of_train_data - const)
+            LB_p_wc = (entropy_p_wc - mi_train - 1 - const) / (size_of_train_data - const)
+
+            data = {"model": model_name, "data set": data_set_name, "model accuracy- train": accuracy_train,
+                    "model acc, test": accuracy_test, "attack acc bb": attack_accuracy[0],
+                    "attack acc ldb": attack_accuracy[1], "mi": mi_train, "entropy- orig": entropy_orig,
+                    "entropy- p": entropy_p, "entropy- p with correction": entropy_p_wc,
+                    "LB on prob of attack making more than 0.5|D| mistakes, orig": LB_orig, "LB on prob.. , p": LB_p,
+                    "LB on prob.., p with correction": LB_p_wc,
                     "k": k, "p": p, "size": size_of_train_data}
-            pickle.dump(data, pickle_file)
+            with open("picklefile", 'ab') as pf:
+                pickle.dump(data, pf)
 
 
 def analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
@@ -349,11 +421,12 @@ def test_landsat_manually():
     ##y_test = landsat_test_normalized[:, -1]  # labels of samples- test set
     # analyze_all_models(x_train, x_test, y_train, y_test, "landsat")
     clf = LogisticRegression(random_state=42, max_iter=150)
-    y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_bb_attack(x_train,
-                                                                                                            x_test,
-                                                                                                            y_train,
-                                                                                                            y_test,
-                                                                                                            clf)
+    y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf)
     Print("y_pred_train shape", y_pred_train.shape)
     Print("y_pred_test shape", y_pred_test.shape)
     K = [2, 3, 5, 11]
@@ -378,6 +451,94 @@ def test_loan_with_miltiple_models():
     analyze_all_models(x_train, x_test, y_train, y_test, 'loan')
 
 
+def unpickle_and_plot_results2():
+    data = []
+    with open("picklefile", 'rb') as pf:
+        try:
+            while True:
+                data.append(pickle.load(pf))
+        except EOFError:
+            pass
+    df = pd.DataFrame(data)
+    pd.DataFrame.to_csv(df, "res.csv")
+    K = df["k"].unique()
+    P = df["p"].unique()
+    datasets = df["data set"].unique()
+    models = df["model"].unique()
+    colors = ['r', 'g', 'b']
+    markers = [".", "v", "p", "+"]
+    assert len(models) == len(markers), "markers number doesn't match to number of models"
+    assert len(datasets) == len(colors), "colors number doesn't match to number of data sets"
+    models = ["lr", "dt", "mlp", "rf"]
+    for k in K:
+        LB_ = df.loc[df["k"] == k]
+        mi_ = df.loc[df["k"] == k]
+        acc_ = df.loc[df["k"] == k]
+        for p in P:
+            LB_p = LB_.loc[LB_["p"] == p, "LB on prob.., p with correction"]
+            acc_bb = acc_.loc[acc_["p"] == p, "attack acc bb"]
+            acc_ldb = acc_.loc[acc_["p"] == p, "attack acc ldb"]
+            mi_p = mi_.loc[mi_["p"] == p, "mi"]
+            LB_p = LB_p.tolist()
+            acc_bb = acc_bb.tolist()
+            acc_ldb = acc_ldb.tolist()
+            mi_p = mi_p.tolist()
+            assert len(mi_p) == len(acc_ldb) == len(acc_bb) == len(LB_p)
+
+            plt.figure()
+            for i in range(len(LB_p)):
+                j = i % len(markers)
+                l = int(i /(len(LB_p)/len(datasets)))
+                plt.scatter(LB_p[i], acc_bb[i], label=f"bb, {datasets[l]} {models[j]}", color=colors[l], marker=markers[j])
+            plt.title(f"LB VS. bb attack accuracy- p={p}, k={k}")
+            plt.xlabel("LB")
+            plt.ylabel("attack accuracy")
+            plt.legend()
+            plt.savefig(f'LB VS bb attack acc p={p} k={k}.png')
+            plt.close()
+
+            plt.figure()
+            for i in range(len(LB_p)):
+                j = i % len(markers)
+                l = int(i /(len(LB_p)/len(datasets)))
+                plt.scatter(LB_p[i], acc_ldb[i], label=f"ldb, {datasets[l]} {models[j]}", color=colors[l], marker=markers[j])
+            plt.title(f"LB VS. ldb attack accuracy- p={p}, k={k}")
+            plt.xlabel("LB")
+            plt.ylabel("attack accuracy")
+            plt.legend()
+            plt.savefig(f'LB VS ldb attack acc p={p} k={k}.png')
+            plt.close()
+
+            plt.figure()
+            for i in range(len(mi_p)):
+                j = i % len(markers)
+                l = int(i / (len(mi_p) / len(datasets)))
+                plt.scatter(mi_p[i], acc_bb[i], label=f"bb, {datasets[l]} {models[j]}", color=colors[l],marker=markers[j])
+            plt.title(f"MI VS. bb attack accuracy- p={p}, k={k}")
+            plt.xlabel("MI")
+            plt.ylabel("attack accuracy")
+            plt.legend()
+            plt.savefig(f'MI VS bb attack acc p={p} k={k}.png')
+            plt.close()
+
+            plt.figure()
+            for i in range(len(mi_p)):
+                j = i % len(markers)
+                l = int(i / (len(mi_p) / len(datasets)))
+                plt.scatter(mi_p[i], acc_ldb[i], label=f"ldb, {datasets[l]} {models[j]}", color=colors[l],
+                            marker=markers[j])
+            plt.title(f"MI VS. ldb attack accuracy- p={p}, k={k}")
+            plt.xlabel("MI")
+            plt.ylabel("attack accuracy")
+            plt.legend()
+            plt.savefig(f'MI VS ldb attack acc p={p} k={k}.png')
+            plt.close()
+
+
+
+
+
+
 def unpickle_and_plot_results():
     data = []
     with open("picklefile", 'rb') as pf:
@@ -388,8 +549,8 @@ def unpickle_and_plot_results():
             pass
     df = pd.DataFrame(data)
     pd.DataFrame.to_csv(df, "res.csv")
-    #df = df.head(n=87)
-    #print(len(df))
+    # df = df.head(n=87)
+    # print(len(df))
     K = df["k"].unique()
     P = df["p"].unique()
     datasets = df["data set"].unique()
@@ -402,26 +563,37 @@ def unpickle_and_plot_results():
         model = df.loc[df["data set"] == ds]
         for k in K:
             mis_k = mis.loc[mis["k"] == k, "mi"]
-            attack_acc_k = attack_acc.loc[attack_acc["k"] == k, "attack acc"]
+            attack_acc_bb_k = attack_acc.loc[attack_acc["k"] == k, "attack acc bb"]
+            attack_acc_ldb_k = attack_acc.loc[attack_acc["k"] == k, "attack acc ldb"]
             model_k = model.loc[model["k"] == k, "model"]
-            assert len(attack_acc_k) == len(mis_k) == len(model_k)
+            assert len(attack_acc_bb_k) == len(mis_k) == len(model_k)
             plt.figure()
             for i in range(len(P)):
                 mis_p = mis_k[i::len(P)]
-                attack_acc_p = attack_acc_k[i::len(P)]
+                attack_acc_bb_p = attack_acc_bb_k[i::len(P)]
+                attack_acc_ldb_p = attack_acc_ldb_k[i::len(P)]
                 model_p = model_k[i::len(P)]
                 mis_p = mis_p.tolist()
-                attack_acc_p= attack_acc_p.tolist()
+                attack_acc_bb_p = attack_acc_bb_p.tolist()
+                attack_acc_ldb_p = attack_acc_ldb_p.tolist()
                 model_p.values.tolist()
-                plt.scatter(mis_p[0], attack_acc_p[0], label=f"p={P[i]} lr", color=colors[i], marker=markers[0])
-                plt.scatter(mis_p[1], attack_acc_p[1], label=f"p={P[i]} dt", color=colors[i], marker=markers[1])
-                plt.scatter(mis_p[2], attack_acc_p[2], label=f"p={P[i]} mlp", color=colors[i], marker=markers[2])
-                plt.scatter(mis_p[3], attack_acc_p[3], label=f"p={P[i]} rf", color=colors[i], marker=markers[3])
+                plt.scatter(mis_p[0], attack_acc_bb_p[0], label=f"bb, p={P[i]} lr", color=colors[i], marker=markers[0])
+                plt.scatter(mis_p[1], attack_acc_bb_p[1], label=f"bb, p={P[i]} dt", color=colors[i], marker=markers[1])
+                plt.scatter(mis_p[2], attack_acc_bb_p[2], label=f"bb, p={P[i]} mlp", color=colors[i], marker=markers[2])
+                plt.scatter(mis_p[3], attack_acc_bb_p[3], label=f"bb, p={P[i]} rf", color=colors[i], marker=markers[3])
+                plt.scatter(mis_p[0], attack_acc_ldb_p[0], label=f"ldb, p={P[i]} lr", color=colors[i],
+                            marker=markers[0])
+                plt.scatter(mis_p[1], attack_acc_ldb_p[1], label=f"ldb, p={P[i]} dt", color=colors[i],
+                            marker=markers[1])
+                plt.scatter(mis_p[2], attack_acc_ldb_p[2], label=f"ldb, p={P[i]} mlp", color=colors[i],
+                            marker=markers[2])
+                plt.scatter(mis_p[3], attack_acc_ldb_p[3], label=f"ldb, p={P[i]} rf", color=colors[i],
+                            marker=markers[3])
             plt.title(f"MI(D,Y) VS. bb attack accuracy- {ds}, k={k}")
             plt.xlabel("MI")
             plt.ylabel("attack accuracy")
             plt.legend()
-            plt.show()
+            # plt.show()
             plt.savefig(f'MI(D,Y) VS attack acc {ds} k={k}.png')
 
         # print (f"K IS {k}")
@@ -433,7 +605,8 @@ def main():
     test_german_with_multiple_models()
     test_landsat_with_multiple_models()
     test_loan_with_miltiple_models()
-    unpickle_and_plot_results()
+    #unpickle_and_plot_results()
+    unpickle_and_plot_results2()
     # test_landsat_manually()
 
     Print("----- DONE :) -----")
@@ -447,7 +620,6 @@ def Print(string, *args):
 
 if __name__ == "__main__":
     output = open("log.txt", "a", 1)
-    pickle_file = open("picklefile", "ab", 1)
     main()
     output.close()
 
