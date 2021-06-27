@@ -12,6 +12,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn import preprocessing
 from sklearn.metrics import accuracy_score
 from scipy.stats import binom
+from scipy.stats import pearsonr
 from matplotlib import pyplot as plt
 from math import comb, log
 import pandas as pd
@@ -175,22 +176,22 @@ def analyze_logistic_regression(x_train, x_test, y_train, y_test, data_set_name)
         y_train,
         y_test,
         clf, attack_type="black box")
-   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-    #    x_train,
-    #    x_test,
-    #    y_train,
-    #    y_test,
-    #    clf, attack_type="label only decision boundary")
-    #assert (y_pred_train_bb == y_pred_train_ldb).all()
-    #assert (y_pred_test_bb == y_pred_test_ldb).all()
-    #assert accuracy_test_bb == accuracy_test_ldb
-    #assert accuracy_train_bb == accuracy_train_ldb
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
 
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
     # "Logistic Regression", data_set_name)
 
-    #attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    attack_accuracy = [attack_accuracy_bb, 0]
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    #attack_accuracy = [attack_accuracy_bb, 0]
     #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              #"Logistic Regression", data_set_name)
 
@@ -207,22 +208,22 @@ def analyze_decision_tree(x_train, x_test, y_train, y_test, data_set_name):
         y_train,
         y_test,
         clf, attack_type="black box")
-   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-   #     x_train,
-   #     x_test,
-   #     y_train,
-   #     y_test,
-   #     clf, attack_type="label only decision boundary")
-   # assert (y_pred_train_bb == y_pred_train_ldb).all()
-   # assert (y_pred_test_bb == y_pred_test_ldb).all()
-   # assert accuracy_test_bb == accuracy_test_ldb
-   # assert accuracy_train_bb == accuracy_train_ldb
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
 
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
     # "Decision Tree", data_set_name)
 
-    #attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    attack_accuracy = [attack_accuracy_bb, 0]
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    #attack_accuracy = [attack_accuracy_bb, 0]
 
     #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              #"Decision Tree", data_set_name)
@@ -240,22 +241,22 @@ def analyze_sklearn_MLPClassifier(x_train, x_test, y_train, y_test, data_set_nam
         y_train,
         y_test,
         clf, attack_type="black box")
-   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-   #     x_train,
-   #     x_test,
-   #     y_train,
-   #     y_test,
-   #     clf, attack_type="label only decision boundary")
-   # assert (y_pred_train_bb == y_pred_train_ldb).all()
-   # assert (y_pred_test_bb == y_pred_test_ldb).all()
-   # assert accuracy_test_bb == accuracy_test_ldb
-   # assert accuracy_train_bb == accuracy_train_ldb
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
 
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
     # "MLP", data_set_name)
 
-    #attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    attack_accuracy = [attack_accuracy_bb, 0]
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    #attack_accuracy = [attack_accuracy_bb, 0]
 
     #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              #"MLP", data_set_name)
@@ -273,22 +274,22 @@ def analyze_RandomForestClassifier(x_train, x_test, y_train, y_test, data_set_na
         y_train,
         y_test,
         clf, attack_type="black box")
-   # y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
-   #     x_train,
-   #     x_test,
-   #     y_train,
-   #     y_test,
-   #     clf, attack_type="label only decision boundary")
-   # assert (y_pred_train_bb == y_pred_train_ldb).all()
-   # assert (y_pred_test_bb == y_pred_test_ldb).all()
-   # assert accuracy_test_bb == accuracy_test_ldb
-   # assert accuracy_train_bb == accuracy_train_ldb
+    y_pred_train_ldb, y_pred_test_ldb, accuracy_train_ldb, accuracy_test_ldb, attack_accuracy_ldb, mistake_prob_ldb = run_inference_attacks(
+        x_train,
+        x_test,
+        y_train,
+        y_test,
+        clf, attack_type="label only decision boundary")
+    assert (y_pred_train_bb == y_pred_train_ldb).all()
+    assert (y_pred_test_bb == y_pred_test_ldb).all()
+    assert accuracy_test_bb == accuracy_test_ldb
+    assert accuracy_train_bb == accuracy_train_ldb
 
     # analyze(x_train, x_test, y_pred_train, y_pred_test, accuracy_train, accuracy_test, attack_accuracy, mistake_prob,
     # "Random Forest", data_set_name)
 
-   # attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
-    attack_accuracy = [attack_accuracy_bb, 0]
+    attack_accuracy = [attack_accuracy_bb, attack_accuracy_ldb]
+    #attack_accuracy = [attack_accuracy_bb, 0]
 
     #analyze2(x_train, x_test, y_pred_train_bb, y_pred_test_bb, accuracy_train_bb, accuracy_test_bb, attack_accuracy,
              #"Random Forest", data_set_name)
@@ -302,11 +303,13 @@ def analyze3(x_train, x_test, y_pred_train, y_pred_test, y_train, accuracy_train
     P = [float('inf'), 2.0, 1.0]
     size_of_train_data = x_train.shape[0]
 
+    # new vector for Y to test if increase corralation of attach ack and MI
     Y = [[y_pred_train[i][int(y_train[i])]] for i in range(len(y_train))]
 
     for k in K:
         for p in P:
-            mi_train = mi.mi_Kraskov_HnM(x_train, Y, k=k, p_x=p, p_y=p)
+            mi_train_v2 = mi.mi_Kraskov_HnM(x_train, Y, k=k, p_x=p, p_y=p)
+            mi_train = mi.mi_Kraskov_HnM(x_train, y_pred_train, k=k, p_x=p, p_y=p)
             Print(f"\t\tk={k}, p={p}, mi={mi_train}")
             entropy_orig = mi.entropy(x_train, k=k)
             entropy_p = mi.entropy(x_train, k=k, p=p)
@@ -320,7 +323,7 @@ def analyze3(x_train, x_test, y_pred_train, y_pred_test, y_train, accuracy_train
 
             data = {"model": model_name, "data set": data_set_name, "model accuracy- train": accuracy_train,
                     "model acc, test": accuracy_test, "attack acc bb": attack_accuracy[0],
-                    "attack acc ldb": attack_accuracy[1], "mi": mi_train, "entropy- orig": entropy_orig,
+                    "attack acc ldb": attack_accuracy[1], "mi": mi_train,"mi_v2":mi_train_v2, "entropy- orig": entropy_orig,
                     "entropy- p": entropy_p, "entropy- p with correction": entropy_p_wc,
                     "LB on prob of attack making more than 0.5|D| mistakes, orig": LB_orig, "LB on prob.. , p": LB_p,
                     "LB on prob.., p with correction": LB_p_wc,
@@ -538,11 +541,12 @@ def unpickle_and_plot_results2():
             acc_bb = acc_.loc[acc_["p"] == p, "attack acc bb"]
             acc_ldb = acc_.loc[acc_["p"] == p, "attack acc ldb"]
             mi_p = mi_.loc[mi_["p"] == p, "mi"]
+            mi_v2_p = mi_.loc[mi_["p"] == p, "mi_v2"]
             LB_p = LB_p.tolist()
             acc_bb = acc_bb.tolist()
             acc_ldb = acc_ldb.tolist()
             mi_p = mi_p.tolist()
-            assert len(mi_p) == len(acc_ldb) == len(acc_bb) == len(LB_p)
+            assert len(mi_p) == len(len(mi_p)) == len(acc_ldb) == len(acc_bb) == len(LB_p)
 
             plt.figure()
             for i in range(len(LB_p)):
@@ -556,6 +560,10 @@ def unpickle_and_plot_results2():
             plt.savefig(f'LB VS bb attack acc p={p} k={k}.png')
             plt.close()
 
+            cor, p_val = pearsonr(LB_p, acc_bb)
+            Print(f"LB VS. bb attack accuracy- p={p}, k={k}")
+            Print(f"perason correlation- bb attack: {cor}, p-value: {p_val}")
+
             plt.figure()
             for i in range(len(LB_p)):
                 j = i % len(markers)
@@ -567,6 +575,10 @@ def unpickle_and_plot_results2():
             plt.legend()
             plt.savefig(f'LB VS ldb attack acc p={p} k={k}.png')
             plt.close()
+
+            cor, p_val = pearsonr(LB_p, acc_ldb)
+            Print(f"LB VS. ldb attack accuracy- p={p}, k={k}")
+            Print(f"perason correlation- ldb attack: {cor}, p-value: {p_val}")
 
             plt.figure()
             for i in range(len(mi_p)):
@@ -580,6 +592,10 @@ def unpickle_and_plot_results2():
             plt.savefig(f'MI VS bb attack acc p={p} k={k}.png')
             plt.close()
 
+            cor, p_val = pearsonr(mi_p, acc_bb)
+            Print(f"MI VS. bb attack accuracy- p={p}, k={k}")
+            Print(f"perason correlation- bb attack: {cor}, p-value: {p_val}")
+
             plt.figure()
             for i in range(len(mi_p)):
                 j = i % len(markers)
@@ -592,6 +608,106 @@ def unpickle_and_plot_results2():
             plt.legend()
             plt.savefig(f'MI VS ldb attack acc p={p} k={k}.png')
             plt.close()
+
+            cor, p_val = pearsonr(mi_p, acc_ldb)
+            Print(f"MI VS. ldb attack accuracy- p={p}, k={k}")
+            Print(f"perason correlation- ldb attack: {cor}, p-value: {p_val}")
+
+            # ****************************************************************
+
+            plt.figure()
+            for i in range(len(mi_p)):
+                j = i % len(markers)
+                l = int(i / (len(mi_p) / len(datasets)))
+                plt.scatter(mi_v2_p[i], acc_bb[i], label=f"bb, {datasets[l]} {models[j]}", color=colors[l],
+                            marker=markers[j])
+            plt.title(f"MI_V2 VS. bb attack accuracy- p={p}, k={k}")
+            plt.xlabel("MI")
+            plt.ylabel("attack accuracy")
+            plt.legend()
+            plt.savefig(f'MI VS bb attack acc p={p} k={k}.png')
+            plt.close()
+
+            cor, p_val = pearsonr(mi_v2_p, acc_bb)
+            Print(f"MI_V2 VS. ldb attack accuracy- p={p}, k={k}")
+            Print(f"perason correlation- bb attack: {cor}, p-value: {p_val}")
+
+            plt.figure()
+            for i in range(len(mi_p)):
+                j = i % len(markers)
+                l = int(i / (len(mi_p) / len(datasets)))
+                plt.scatter(mi_v2_p[i], acc_ldb[i], label=f"ldb, {datasets[l]} {models[j]}", color=colors[l],
+                            marker=markers[j])
+            plt.title(f"MI_V2 VS. ldb attack accuracy- p={p}, k={k}")
+            plt.xlabel("MI")
+            plt.ylabel("attack accuracy")
+            plt.legend()
+            plt.savefig(f'MI VS ldb attack acc p={p} k={k}.png')
+            plt.close()
+
+            cor, p_val = pearsonr(mi_v2_p, acc_ldb)
+            Print(f"MI_V2 VS. ldb attack accuracy- p={p}, k={k}")
+            Print(f"perason correlation- ldb attack: {cor}, p-value: {p_val}")
+
+    df_ = df.loc[df["k"] == 1]
+    df_ = df_.loc[df_["p"] == float('inf')]
+    acc_train = df_["model accuracy- train"]
+    acc_test = df_["model acc, test"]
+    attack_acc_bb = df_["attack acc bb"]
+    attack_acc_ldb = df_["attack acc ldb"]
+
+    acc_train = acc_train.tolist()
+    acc_test = acc_test.tolist()
+    attack_acc_bb = attack_acc_bb.tolist()
+    attack_acc_ldb = attack_acc_ldb.tolist()
+    delta = [x - y for x, y in zip(acc_train, acc_test)]
+    plt.figure()
+    for i in range(len(delta)):
+        j = i % len(markers)
+        l = int(i / (len(delta) / len(datasets)))
+        plt.scatter(delta[i], attack_acc_bb[i], label=f"bb, {datasets[l]} {models[j]}", color=colors[l],
+                    marker=markers[j])
+    plt.title(f"overfitting gap VS. bb attack accuracy")
+    plt.xlabel("overfit gap (train accuracy - test accuracy)")
+    plt.ylabel("attack accuracy")
+    plt.legend()
+    plt.savefig(f'overfit gap VS bb attack acc.png')
+    plt.close()
+    cor, p = pearsonr(delta, attack_acc_bb)
+    Print(f"overfitting gap VS. bb attack accuracy")
+    Print(f"perason correlation- bb attack: {cor}, p-value: {p}")
+
+    plt.figure()
+    for i in range(len(delta)):
+        j = i % len(markers)
+        l = int(i / (len(delta) / len(datasets)))
+        plt.scatter(delta[i], attack_acc_ldb[i], label=f"ldb, {datasets[l]} {models[j]}", color=colors[l],
+                    marker=markers[j])
+    plt.title(f"overfitting gap VS. ldb attack accuracy")
+    plt.xlabel("overfit gap (train accuracy - test accuracy)")
+    plt.ylabel("attack accuracy")
+    plt.legend()
+    plt.savefig(f'overfit gap VS ldb attack acc.png')
+    plt.close()
+    cor, p = pearsonr(delta, attack_acc_ldb)
+    Print(f"overfitting gap VS. ldb attack accuracy")
+    Print(f"perason correlation- ldb attack: {cor}, p-value: {p}")
+
+    plt.figure()
+    for i in range(len(delta)):
+        j = i % len(markers)
+        l = int(i / (len(delta) / len(datasets)))
+        plt.scatter(delta[i], attack_acc_bb[i], color=colors[l], marker=markers[j])
+        plt.scatter(delta[i], attack_acc_ldb[i], color=colors[l], marker=markers[j])
+    plt.title(f"overfitting gap VS. both attacks accuracy")
+    plt.xlabel("overfit gap (train accuracy - test accuracy)")
+    plt.ylabel("attack accuracy")
+    # plt.legend()
+    plt.savefig(f'overfit gap VS both attacks acc.png')
+    plt.close()
+    cor, p = pearsonr(delta + delta, attack_acc_bb + attack_acc_ldb)
+    Print(f"overfitting gap VS. both attacks accuracy")
+    Print(f"perason correlation- both attacks: {cor}, p-value: {p}")
 
 
 def unpickle_and_plot_results():
