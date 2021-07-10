@@ -354,8 +354,8 @@ def plot_and_print_correlation(x, y, models, datasets, markers, colors, title, x
     @param attack_type: Name of attack. string
     @return:
     """
-    assert len(models) == len(colors)
-    assert len(datasets) == len(markers)
+    assert len(models) == len(markers)
+    assert len(datasets) == len(colors)
     plt.figure()
     for i in range(len(x)):
         j = i % len(models)
@@ -453,7 +453,7 @@ def unpickle_and_plot_results():
                                        filename=f'MI (test) VS bb attack acc p={p} k={k}.png',
                                        attack_type="bb")
             plot_and_print_correlation(mi_test_p, acc_ldb, models, datasets, markers, colors,
-                                       title=f"MI(test) VS. ldb attack accuracy- p={p}, k={k}", x_label="MI",
+                                       title=f"MI (test) VS. ldb attack accuracy- p={p}, k={k}", x_label="MI",
                                        y_label="attack accuracy",
                                        filename=f'MI (test) VS ldb attack acc p={p} k={k}.png',
                                        attack_type="ldb")
@@ -476,7 +476,7 @@ def unpickle_and_plot_results():
                                        filename=f'MI (test, normalized) VS bb attack acc p={p} k={k}.png',
                                        attack_type="bb")
             plot_and_print_correlation(mi_test_normalized, acc_ldb, models, datasets, markers, colors,
-                                       title=f"MI(test, normalized) VS. ldb attack accuracy- p={p}, k={k}",
+                                       title=f"MI (test, normalized) VS. ldb attack accuracy- p={p}, k={k}",
                                        x_label="MI",
                                        y_label="attack accuracy",
                                        filename=f'MI (test, normalized) VS ldb attack acc p={p} k={k}.png',
@@ -519,8 +519,8 @@ def unpickle_and_plot_results():
     df_ = df_.loc[df_["p"] == float('inf')]
     acc_train = df_["model accuracy- train"].tolist()
     acc_test = df_["model acc, test"].tolist()
-    attack_acc_bb = df_["attack acc bb"].tolist()
-    attack_acc_ldb = df_["attack acc ldb"].tolist()
+    attack_acc_bb = df_["attack acc black box"].tolist()
+    attack_acc_ldb = df_["attack acc label only decision boundary"].tolist()
 
     delta = [x - y for x, y in zip(acc_train, acc_test)]
     plot_and_print_correlation(delta, attack_acc_bb, models, datasets, markers, colors,
